@@ -1,6 +1,6 @@
 use crate::memory_bus::{MemoryBus};
 use crate::registers::{Register, Registers};
-use crate::opcode::{Dst, Src, Opcode, Instr};
+use crate::opcode::{Src, Opcode, Instr};
 
 use Opcode::*;
 use Register::*;
@@ -115,6 +115,23 @@ impl Cpu {
                 let r4 = (a & 0xF) - (b & 0xF);
                 self.registers.set_flags(r8 == 0, true, r4 < 0, r16 < 0);
             }
+            INC8(dst) => {
+                let a = self.get_u8(dst) as u16;
+                let r16 = a + 1;
+                let r8 = (r16 & 0xFF) as u8;
+                let r4 = (a & 0xF) + 1;
+                self.ld8(dst, Src::D8(r8));
+                self.registers.set_flags(r8 == 0, false, (r4 >> 4) == 1, self.registers.cy_flag() == 1);
+            },
+            DEC8(dst) => {
+                let a = self.get_u8(dst) as i16;
+                let r16 = a - 1;
+                let r8 = (r16 & 0xFF) as u8;
+                let r4 = (a & 0xF) - 1;
+
+                self.ld8(dst, Src::D8(r8));
+                self.registers.set_flags(r8 == 0, true, r4 < 0, self.registers.cy_flag() == 1);
+            }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
 
@@ -122,14 +139,15 @@ impl Cpu {
         return instr.cycles;
     }
 
-    fn ld8(&mut self, dst: Dst, src: Src) {
+    fn ld8(&mut self, dst: Src, src: Src) {
         let v = self.get_u8(src);
         match dst {
-            Dst::Reg(r) => self.registers.set8(r, v),
-            Dst::Deref(C) => self.memory_bus.set8(0xFF00 + self.registers.get8(C) as u16, v),
-            Dst::Deref(r) => self.memory_bus.set8(self.registers.get16(r), v),
-            Dst::A16(a16) => self.memory_bus.set8(a16, v),
-            Dst::A8(a8) => self.memory_bus.set8(0xFF00 + a8 as u16, v)
+            Src::Reg(r) => self.registers.set8(r, v),
+            Src::Deref(C) => self.memory_bus.set8(0xFF00 + self.registers.get8(C) as u16, v),
+            Src::Deref(r) => self.memory_bus.set8(self.registers.get16(r), v),
+            Src::A16(a16) => self.memory_bus.set8(a16, v),
+            Src::A8(a8) => self.memory_bus.set8(0xFF00 + a8 as u16, v),
+            _ => panic!("Invalid dst for 8 bit value.")
         }
     }
 
@@ -145,12 +163,12 @@ impl Cpu {
         }
     }
 
-    fn ld16(&mut self, dst: Dst, src: Src) {
+    fn ld16(&mut self, dst: Src, src: Src) {
         let v = self.get_u16(src);
         match dst {
-            Dst::Reg(r) => self.registers.set16(r, v),
-            Dst::A16(a16) => self.memory_bus.set16(a16, v),
-            _ => panic!("Invalid dst for 16 bit value {:?}", dst)
+            Src::Reg(r) => self.registers.set16(r, v),
+            Src::A16(a16) => self.memory_bus.set16(a16, v),
+            _ => panic!("Invalid src for 16 bit value {:?}", dst)
         }
     }
 
@@ -697,5 +715,69 @@ mod tests {
         assert_eq!(cpu.registers.n_flag(), 1);
         assert_eq!(cpu.registers.h_flag(), 0);
         assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_3c() {
+        let mb = MemoryBus::new_from_slice(&[0x3C]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(A, 0xFF);
+        cpu.registers.set_flags(false, false, false, true);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get8(A), 0x00);
+        assert_eq!(cpu.registers.z_flag(), 1);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_34() {
+        let mb = MemoryBus::new_from_slice(&[0x34]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x1234);
+        cpu.memory_bus.set8(0x1234, 0x50);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.memory_bus.get8(0x1234), 0x51);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
+    #[test]
+    fn test_2d() {
+        let mb = MemoryBus::new_from_slice(&[0x2D]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(L, 0x01);
+        cpu.registers.set_flags(false, false, false, true);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get8(L), 0x00);
+        assert_eq!(cpu.registers.z_flag(), 1);
+        assert_eq!(cpu.registers.n_flag(), 1);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_35() {
+        let mb = MemoryBus::new_from_slice(&[0x35]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x1234);
+        cpu.memory_bus.set8(0x1234, 0x00);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.memory_bus.get8(0x1234), 0xFF);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 1);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 0);
     }
 }

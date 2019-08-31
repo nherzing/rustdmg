@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Register {
     A,
     B,
