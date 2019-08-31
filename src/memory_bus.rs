@@ -23,12 +23,21 @@ impl MemoryBus {
         }
     }
 
-    pub fn set_byte(&mut self, addr: u16, byte: u8) {
+    pub fn set8(&mut self, addr: u16, byte: u8) {
         self.memory[addr as usize] = byte;
     }
 
-    pub fn read_byte(&self, addr: u16) -> u8 {
+    pub fn set16(&mut self, addr: u16, v: u16) {
+        self.memory[addr as usize] = (v >> 8) as u8;
+        self.memory[addr as usize + 1] = (v & 0xFF) as u8;
+    }
+
+    pub fn get8(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
+    }
+
+    pub fn get16(&self, addr: u16) -> u16 {
+        ((self.memory[addr as usize] as u16) << 8) + (self.memory[addr as usize + 1] as u16)
     }
 
     pub fn read_bytes(&self, addr: u16, bytes: &mut [u8]) {
