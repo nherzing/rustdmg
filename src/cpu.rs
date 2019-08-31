@@ -182,8 +182,7 @@ impl Cpu {
 
 
     fn disassemble(&self) -> Instr {
-        let mut instr_bytes: [u8; 3] = [0; 3];
-        self.memory_bus.read_bytes(self.registers.pc(), &mut instr_bytes);
+        let instr_bytes = self.memory_bus.get_slice(self.registers.pc(), 3);
 
         Instr::disassemble(instr_bytes)
     }

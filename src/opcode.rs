@@ -47,7 +47,7 @@ fn n(opcode: Opcode, cycles: u8, n_bytes: u16) -> Instr {
 }
 
 impl Instr {
-    pub fn disassemble(bytes: [u8; 3]) -> Instr {
+    pub fn disassemble(bytes: &[u8]) -> Instr {
         let b1 = bytes[1];
         let b12 = ((bytes[1] as u16) << 8) | (bytes[2] as u16);
 

@@ -40,10 +40,9 @@ impl MemoryBus {
         ((self.memory[addr as usize] as u16) << 8) + (self.memory[addr as usize + 1] as u16)
     }
 
-    pub fn read_bytes(&self, addr: u16, bytes: &mut [u8]) {
-        for (i, byte) in bytes.iter_mut().enumerate() {
-            *byte = self.memory[addr as usize + i]
-        }
+    pub fn get_slice(&self, addr: u16, size: usize) -> &[u8] {
+        let idx = addr as usize;
+        &self.memory[idx..idx+size]
     }
 }
 
@@ -52,10 +51,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_bytes() {
+    fn test_get_slice() {
         let mb = MemoryBus::new_from_slice(&[1, 2, 3, 4, 5]);
-        let mut bs: [u8; 3] = [0; 3];
-        mb.read_bytes(2, &mut bs);
+        let bs = mb.get_slice(2, 3);
         assert_eq!(bs, [3, 4, 5])
     }
 }
