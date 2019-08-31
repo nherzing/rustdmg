@@ -97,6 +97,26 @@ impl Registers {
         self.pc += n;
     }
 
+    pub fn set_flags(&mut self, z: bool, n: bool, h: bool, cy: bool) {
+        self.f = ((z as u8) << 7) | ((n as u8) << 6) | ((h as u8) << 5) | ((cy as u8) << 4);
+    }
+
+    pub fn z_flag(&self) -> u8 {
+        (self.f >> 7) & 1
+    }
+
+    pub fn n_flag(&self) -> u8 {
+        (self.f >> 6) & 1
+    }
+
+    pub fn h_flag(&self) -> u8 {
+        (self.f >> 5) & 1
+    }
+
+    pub fn cy_flag(&self) -> u8 {
+        (self.f >> 4) & 1
+    }
+
     fn combine(&self, a: u8, b: u8) -> u16 {
         ((a as u16) << 8) | (b as u16)
     }
