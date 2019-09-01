@@ -1,25 +1,12 @@
 use crate::memory_bus::{MemoryBus};
-use crate::registers::{Register, Registers};
+use crate::registers::{Register};
 use crate::opcode::{Src, FlagCondition, Opcode, Instr};
 
+use super::Cpu;
 use Opcode::*;
 use Register::*;
 
-struct Cpu {
-    memory_bus: MemoryBus,
-    registers: Registers,
-    ime: bool
-}
-
 impl Cpu {
-    pub fn new(memory_bus: MemoryBus) -> Cpu {
-        Cpu {
-            memory_bus,
-            registers: Registers::new(),
-            ime: false
-        }
-    }
-
     pub fn step(&mut self) -> u8 {
         let instr = self.disassemble();
         let mut inc_pc = true;
@@ -27,7 +14,6 @@ impl Cpu {
 
         match instr.opcode {
             NOP => {}
-            HALT => {}
             LD8(dst, src) => {
                 self.ld8(dst, src);
             }
@@ -373,7 +359,15 @@ impl Cpu {
             EI => {
                 self.ime = true;
             }
-            _ => panic!("Not implemented: {:?}", instr.opcode)
+            HALT => {
+                panic!("HALT not implemented");
+            }
+            STOP => {
+                panic!("STOP not implemented");
+            }
+            INVALID(b) => {
+                panic!("Invalid opcode: {:x?}", b)
+            }
         }
 
         if inc_pc {
@@ -1641,5 +1635,4 @@ mod tests {
         assert_eq!(cpu.registers.n_flag(), 0);
         assert_eq!(cpu.registers.cy_flag(), 0);
     }
-
 }

@@ -1,4 +1,4 @@
-use crate::registers::{Register};
+use super::registers::{Register};
 
 use Register::*;
 
@@ -72,6 +72,8 @@ pub enum Opcode {
     DI,
     EI,
     HALT,
+    STOP,
+    INVALID(u8)
 }
 
 use Opcode::*;
@@ -88,11 +90,12 @@ fn n(opcode: Opcode, cycles: u8, n_bytes: u16) -> Instr {
 
 impl Instr {
     pub fn disassemble(bytes: &[u8]) -> Instr {
+        let b0 = bytes[0];
         let b1 = bytes[1];
         let b12 = ((bytes[1] as u16) << 8) | (bytes[2] as u16);
         let b21 = ((bytes[2] as u16) << 8) | (bytes[1] as u16);
 
-        match bytes[0] {
+        match b0 {
             0x00 => n(NOP, 1, 1),
             0x01 => n(LD16(Src::Reg(BC), Src::D16(b12)), 3, 3),
             0x02 => n(LD8(Src::Deref(BC), Src::Reg(A)), 2, 1),
@@ -109,6 +112,7 @@ impl Instr {
             0x0D => n(DEC8(Src::Reg(C)), 1, 1),
             0x0E => n(LD8(Src::Reg(C), Src::D8(b1)), 2, 2),
             0x0F => n(RRCA, 1, 1),
+            0x10 => n(STOP, 1, 1),
             0x11 => n(LD16(Src::Reg(DE), Src::D16(b12)), 3, 3),
             0x12 => n(LD8(Src::Deref(DE), Src::Reg(A)), 2, 1),
             0x13 => n(INC16(DE), 2, 1),
@@ -302,6 +306,7 @@ impl Instr {
             0xD0 => n(RET(FlagCondition::NC), 5, 1),
             0xD1 => n(POP(DE), 4, 1),
             0xD2 => n(JP(FlagCondition::NC, Src::D16(b21)), 4, 3),
+            0xD3 => n(INVALID(b0), 1, 1),
             0xD4 => n(CALL(FlagCondition::NC, b21), 6, 3),
             0xD5 => n(PUSH(DE), 4, 1),
             0xD6 => n(SUB8(Src::D8(b1)), 2, 2),
@@ -309,24 +314,32 @@ impl Instr {
             0xD8 => n(RET(FlagCondition::C), 5, 1),
             0xD9 => n(RETI, 4, 1),
             0xDA => n(JP(FlagCondition::C, Src::D16(b21)), 4, 3),
+            0xDB => n(INVALID(b0), 1, 1),
             0xDC => n(CALL(FlagCondition::C, b21), 6, 3),
+            0xDD => n(INVALID(b0), 1, 1),
             0xDE => n(SBC8(Src::D8(b1)), 2, 2),
             0xDF => n(RST(0x18), 4, 1),
             0xE0 => n(LD8(Src::A8(b1), Src::Reg(A)), 3, 2),
             0xE1 => n(POP(HL), 4, 1),
-            0xE5 => n(PUSH(HL), 4, 1),
             0xE2 => n(LD8(Src::Deref(C), Src::Reg(A)), 2, 1),
+            0xE3 => n(INVALID(b0), 1, 1),
+            0xE4 => n(INVALID(b0), 1, 1),
+            0xE5 => n(PUSH(HL), 4, 1),
             0xE6 => n(AND(Src::D8(b1)), 2, 2),
             0xE7 => n(RST(0x20), 4, 1),
             0xE8 => n(ADD16(SP, Src::I8(b1 as i8)), 4, 1),
             0xE9 => n(JP(FlagCondition::ALWAYS, Src::Reg(HL)), 1, 1),
             0xEA => n(LD8(Src::A16(b12), Src::Reg(A)), 4, 3),
+            0xEB => n(INVALID(b0), 1, 1),
+            0xEC => n(INVALID(b0), 1, 1),
+            0xED => n(INVALID(b0), 1, 1),
             0xEE => n(XOR(Src::D8(b1)), 2, 2),
             0xEF => n(RST(0x28), 4, 1),
             0xF0 => n(LD8(Src::Reg(A), Src::A8(b1)), 3, 2),
             0xF1 => n(POP(AF), 4, 1),
             0xF2 => n(LD8(Src::Reg(A), Src::Deref(C)), 2, 1),
             0xF3 => n(DI, 1, 1),
+            0xF4 => n(INVALID(b0), 1, 1),
             0xF5 => n(PUSH(AF), 4, 1),
             0xF6 => n(OR(Src::D8(b1)), 2, 2),
             0xF7 => n(RST(0x30), 4, 1),
@@ -334,6 +347,8 @@ impl Instr {
             0xF9 => n(LD16(Src::Reg(SP), Src::Reg(HL)), 2, 1),
             0xFA => n(LD8(Src::Reg(A), Src::A16(b12)), 4, 3),
             0xFB => n(EI, 1, 1),
+            0xFC => n(INVALID(b0), 1, 1),
+            0xFD => n(INVALID(b0), 1, 1),
             0xFE => n(CP(Src::D8(b1)), 2, 2),
             0xFF => n(RST(0x38), 4, 1),
             0xCB => match b1 {
@@ -592,10 +607,8 @@ impl Instr {
                 0xFC => n(SET(7, Src::Reg(H)), 2, 2),
                 0xFD => n(SET(7, Src::Reg(L)), 2, 2),
                 0xFE => n(SET(7, Src::Deref(HL)), 4, 2),
-                0xFF => n(SET(7, Src::Reg(A)), 2, 2),
+                0xFF => n(SET(7, Src::Reg(A)), 2, 2)
             }
-                // n(opcodes, cycles, bytes)
-            _ => panic!("Unknown opcode")
         }
     }
 }
