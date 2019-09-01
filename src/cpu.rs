@@ -247,6 +247,19 @@ impl Cpu {
                 let b = (a >> bi) & 0x1;
                 self.registers.set_flags((!b & 0x1) == 1, false, true, self.registers.cy_flag() == 1);
             }
+            RES(bi, dst) => {
+                let a = self.get_u8(dst);
+                let mask = 0xFF ^ (1 << bi);
+                let r = a & mask;
+                self.ld8(dst, Src::D8(r));
+            }
+            SET(bi, dst) => {
+                let a = self.get_u8(dst);
+                let mask = (1 << bi);
+                let r = a | mask;
+                println!("{} | {} = {}", a, mask, r);
+                self.ld8(dst, Src::D8(r));
+            }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
 
@@ -1226,5 +1239,53 @@ mod tests {
         assert_eq!(cpu.registers.h_flag(), 1);
         assert_eq!(cpu.registers.n_flag(), 0);
         assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_cbbf() {
+        let mb = MemoryBus::new_from_slice(&[0xCB, 0xBF]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(A, 0x80);
+
+        assert_eq!(cpu.step(), 2);
+        assert_eq!(cpu.registers.pc(), 0x02);
+        assert_eq!(cpu.registers.get8(A), 0x00);
+    }
+
+    #[test]
+    fn test_cb93() {
+        let mb = MemoryBus::new_from_slice(&[0xCB, 0x9E]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x1234);
+        cpu.memory_bus.set8(0x1234, 0xFF);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x02);
+        assert_eq!(cpu.memory_bus.get8(0x1234), 0xF7);
+    }
+
+    #[test]
+    fn test_cbfd() {
+        let mb = MemoryBus::new_from_slice(&[0xCB, 0xFD]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(L, 0x3B);
+
+        assert_eq!(cpu.step(), 2);
+        // example in gb programming manual is wrong?
+        assert_eq!(cpu.registers.pc(), 0x02);
+        assert_eq!(cpu.registers.get8(L), 0xBB);
+    }
+
+    #[test]
+    fn test_cbde() {
+        let mb = MemoryBus::new_from_slice(&[0xCB, 0xDE]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x1234);
+        cpu.memory_bus.set8(0x1234, 0x00);
+
+        assert_eq!(cpu.step(), 4);
+        // example in gb programming manual is wrong?
+        assert_eq!(cpu.registers.pc(), 0x02);
+        assert_eq!(cpu.memory_bus.get8(0x1234), 0x08);
     }
 }
