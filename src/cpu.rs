@@ -39,6 +39,16 @@ impl Cpu {
                 self.ld8(dst, src);
                 self.registers.set16(HL, self.registers.get16(HL) - 1);
             },
+            LD16(Src::Reg(HL), Src::I8(v)) => {
+                let sp = self.registers.get16(SP) as i32;
+                let b = v as i32;
+                let r32 = sp + b;
+                let r16 = r32 as u16;
+                let r12 = (sp & 0xFFF) + (b & 0xFFF);
+
+                self.registers.set16(HL, r16);
+                self.registers.set_flags(false, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
+            }
             LD16(dst, src) => {
                 self.ld16(dst, src);
             }
@@ -1616,4 +1626,20 @@ mod tests {
         assert_eq!(cpu.registers.n_flag(), 0);
         assert_eq!(cpu.registers.cy_flag(), 1);
     }
+
+    #[test]
+    fn test_f8() {
+        let mb = MemoryBus::new_from_slice(&[0xF8, 0x2]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(SP, 0xFFF8);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.get16(PC), 0x2);
+        assert_eq!(cpu.registers.get16(HL), 0xFFFA);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
 }

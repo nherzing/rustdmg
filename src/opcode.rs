@@ -330,6 +330,7 @@ impl Instr {
             0xF5 => n(PUSH(AF), 4, 1),
             0xF6 => n(OR(Src::D8(b1)), 2, 2),
             0xF7 => n(RST(0x30), 4, 1),
+            0xF8 => n(LD16(Src::Reg(HL), Src::I8(b1 as i8)), 3, 2),
             0xF9 => n(LD16(Src::Reg(SP), Src::Reg(HL)), 2, 1),
             0xFA => n(LD8(Src::Reg(A), Src::A16(b12)), 4, 3),
             0xFB => n(EI, 1, 1),
