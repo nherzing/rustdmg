@@ -122,7 +122,7 @@ impl Cpu {
                 let r4 = (a & 0xF) + 1;
                 self.ld8(dst, Src::D8(r8));
                 self.registers.set_flags(r8 == 0, false, (r4 >> 4) == 1, self.registers.cy_flag() == 1);
-            },
+            }
             DEC8(dst) => {
                 let a = self.get_u8(dst) as i16;
                 let r16 = a - 1;
@@ -131,6 +131,33 @@ impl Cpu {
 
                 self.ld8(dst, Src::D8(r8));
                 self.registers.set_flags(r8 == 0, true, r4 < 0, self.registers.cy_flag() == 1);
+            }
+            ADD16(reg, Src::I8(v)) => {
+                let a = self.registers.get16(reg) as i32;
+                let b = v as i32;
+                let r32 = a + b;
+                let r16 = (r32 & 0xFFFF) as u16;
+                let r12 = (a & 0xFFF) + (b & 0xFFF);
+
+                self.registers.set16(reg, r16);
+                // not sure about this carry
+                self.registers.set_flags(false, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
+            }
+            ADD16(reg, src) => {
+                let a = self.registers.get16(reg) as u32;
+                let b = self.get_u16(src) as u32;
+                let r32 = a + b;
+                let r16 = (r32 & 0xFFFF) as u16;
+                let r12 = (a & 0xFFF) + (b & 0xFFF);
+
+                self.registers.set16(reg, r16);
+                self.registers.set_flags(self.registers.z_flag() == 1, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
+            }
+            INC16(reg) => {
+                self.registers.set16(reg, self.registers.get16(reg) + 1);
+            }
+            DEC16(reg) => {
+                self.registers.set16(reg, self.registers.get16(reg) - 1);
             }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
@@ -159,7 +186,7 @@ impl Cpu {
             Src::Deref(r) => self.memory_bus.get8(self.registers.get16(r)),
             Src::A8(a8) => self.memory_bus.get8(0xFF00 + a8 as u16),
             Src::A16(a16) => self.memory_bus.get8(a16),
-            Src::D16(_) => panic!("Can't use d16 as 8 bit value.")
+            _ => panic!("Invalid src for 8 bit value.")
         }
     }
 
@@ -176,6 +203,7 @@ impl Cpu {
         match src {
             Src::Reg(r) => self.registers.get16(r),
             Src::D16(d16) => d16,
+            Src::I8(i8) => i8 as u16,
             _ => panic!("Invalid src for 16 bit value {:?}", src)
         }
     }
@@ -778,5 +806,89 @@ mod tests {
         assert_eq!(cpu.registers.n_flag(), 1);
         assert_eq!(cpu.registers.h_flag(), 1);
         assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
+    #[test]
+    fn test_09() {
+        let mb = MemoryBus::new_from_slice(&[0x09]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x8A23);
+        cpu.registers.set16(BC, 0x0605);
+        cpu.registers.set_flags(true, false, false, false);
+
+        assert_eq!(cpu.step(), 2);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(HL), 0x9028);
+        assert_eq!(cpu.registers.z_flag(), 1);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
+    #[test]
+    fn test_29() {
+        let mb = MemoryBus::new_from_slice(&[0x29]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x8A23);
+
+        assert_eq!(cpu.step(), 2);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(HL), 0x1446);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_e8() {
+        let mb = MemoryBus::new_from_slice(&[0xE8, 0x02]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(SP, 0xFFF8);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(SP), 0xFFFA);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
+    #[test]
+    fn test_e8_neg() {
+        let mb = MemoryBus::new_from_slice(&[0xE8, 0xFE]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(SP, 0xFFF8);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(SP), 0xFFF6);
+        assert_eq!(cpu.registers.z_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+    }
+
+    #[test]
+    fn test_13() {
+        let mb = MemoryBus::new_from_slice(&[0x13]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(DE, 0x235F);
+
+        assert_eq!(cpu.step(), 2);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(DE), 0x2360);
+    }
+
+    #[test]
+    fn test_1b() {
+        let mb = MemoryBus::new_from_slice(&[0x1B]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(DE, 0x235F);
+
+        assert_eq!(cpu.step(), 2);
+        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.get16(DE), 0x235E);
     }
 }
