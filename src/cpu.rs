@@ -7,14 +7,16 @@ use Register::*;
 
 struct Cpu {
     memory_bus: MemoryBus,
-    registers: Registers
+    registers: Registers,
+    ime: bool
 }
 
 impl Cpu {
     pub fn new(memory_bus: MemoryBus) -> Cpu {
         Cpu {
             memory_bus,
-            registers: Registers::new()
+            registers: Registers::new(),
+            ime: false
         }
     }
 
@@ -269,7 +271,7 @@ impl Cpu {
                 } else {
                     cycles -= 1;
                 }
-            },
+            }
             JR(fc, offset) => {
                 if self.flag_match(fc) {
                     let r = if offset >= 0 {
@@ -282,6 +284,33 @@ impl Cpu {
                     cycles -= 1;
                 }
             }
+            CALL(fc, addr) => {
+                if self.flag_match(fc) {
+                    self.push_pc(instr.n_bytes);
+                    self.registers.set16(PC, addr);
+                    inc_pc = false;
+                } else {
+                    cycles -= 3;
+                }
+            }
+            RET(fc) => {
+                if self.flag_match(fc) {
+                    self.pop_pc();
+                    inc_pc = false;
+                } else {
+                    cycles -= 3
+                }
+            }
+            RETI => {
+                self.ime = true;
+                self.pop_pc();
+                inc_pc = false;
+            }
+            RST(addr) => {
+                self.push_pc(instr.n_bytes);
+                self.registers.set16(PC, addr as u16);
+                inc_pc = false;
+            }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
 
@@ -290,6 +319,26 @@ impl Cpu {
         }
 
         return cycles;
+    }
+
+    fn push_pc(&mut self, n: u16) {
+        let pc = self.registers.get16(PC) + n;
+        let sp = self.registers.get16(SP);
+        let hb = (pc >> 8) as u8;
+        let lb = (pc & 0xFF) as u8;
+
+        self.memory_bus.set8(sp-1, hb);
+        self.memory_bus.set8(sp-2, lb);
+        self.registers.set16(SP, sp-2);
+    }
+
+    fn pop_pc(&mut self) {
+        let sp = self.registers.get16(SP);
+        let lb = self.memory_bus.get8(sp) as u16;
+        let hb = self.memory_bus.get8(sp+1) as u16;
+        let addr = (hb << 8) | lb;
+        self.registers.set16(PC, addr);
+        self.registers.set16(SP, sp+2);
     }
 
     fn flag_match(&self, fc: FlagCondition) -> bool {
@@ -1401,5 +1450,64 @@ mod tests {
 
         assert_eq!(cpu.step(), 4);
         assert_eq!(cpu.registers.pc(), 0x03);
+    }
+
+    #[test]
+    fn test_cd() {
+        let mb = MemoryBus::new_from_slice(&[0x00, 0x00, 0x00, 0xcd, 0x34, 0x12]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(SP, 0xFFFE);
+        cpu.registers.set16(PC, 0x03);
+
+        assert_eq!(cpu.step(), 6);
+        assert_eq!(cpu.registers.pc(), 0x1234);
+        let sp = cpu.registers.get16(SP);
+        assert_eq!(sp, 0xFFFC);
+        assert_eq!(cpu.memory_bus.get8(sp), 0x06);
+        assert_eq!(cpu.memory_bus.get8(sp + 1), 0x00);
+    }
+
+    #[test]
+    fn test_c9() {
+        let mb = MemoryBus::new_from_slice(&[0xC9]);
+        let mut cpu = Cpu::new(mb);
+        cpu.memory_bus.set8(0xFFFC, 0x02);
+        cpu.memory_bus.set8(0xFFFD, 0x00);
+        cpu.registers.set16(SP, 0xFFFC);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x02);
+        let sp = cpu.registers.get16(SP);
+        assert_eq!(sp, 0xFFFE);
+    }
+
+    #[test]
+    fn test_d9() {
+        let mb = MemoryBus::new_from_slice(&[0xD9]);
+        let mut cpu = Cpu::new(mb);
+        cpu.memory_bus.set8(0xFFFC, 0x02);
+        cpu.memory_bus.set8(0xFFFD, 0x00);
+        cpu.registers.set16(SP, 0xFFFC);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x02);
+        let sp = cpu.registers.get16(SP);
+        assert_eq!(sp, 0xFFFE);
+        assert!(cpu.ime);
+    }
+
+    #[test]
+    fn test_e7() {
+        let mb = MemoryBus::new_from_slice(&[0x00, 0x00, 0x00, 0xe7]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(SP, 0xFFFE);
+        cpu.registers.set16(PC, 0x03);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x20);
+        let sp = cpu.registers.get16(SP);
+        assert_eq!(sp, 0xFFFC);
+        assert_eq!(cpu.memory_bus.get8(sp), 0x04);
+        assert_eq!(cpu.memory_bus.get8(sp + 1), 0x00);
     }
 }
