@@ -311,6 +311,58 @@ impl Cpu {
                 self.registers.set16(PC, addr as u16);
                 inc_pc = false;
             }
+            DAA => {
+                // i dunno about this
+                let a = self.registers.get8(A);
+                let ln = a & 0xF;
+                let hn = (a >> 4) & 0xF;
+                let mut to_add = 0;
+                let h_flag = self.registers.h_flag() == 1;
+                let cy_flag = self.registers.cy_flag() == 1;
+                let mut set_cy = false;
+                if self.registers.n_flag() == 1 {
+                    if !cy_flag {
+                        if hn <= 8 && ln >= 6 && h_flag {
+                            to_add = 0xFA;
+                        }
+                    } else if cy_flag {
+                        if hn >= 7 && !h_flag && ln <= 9 {
+                            to_add = 0xA0;
+                            set_cy = true;
+                        } else if hn >= 6 && h_flag && ln >= 6 {
+                            to_add = 0x9A;
+                            set_cy = true;
+                        }
+                    }
+                } else {
+                    if ln >= 10 || h_flag {
+                        to_add += 6;
+                    }
+                    if hn >= 10 || cy_flag {
+                        to_add += 0x60;
+                        set_cy = true;
+                    }
+                }
+                let r = ((a as u16) + to_add) as u8;
+                self.registers.set8(A, r);
+                self.registers.set_flags(r == 0, self.registers.n_flag() == 1, false, set_cy);
+            }
+            CPL => {
+                self.registers.set8(A, !self.registers.get8(A));
+                self.registers.set_flags(self.registers.z_flag() == 1, true, true, self.registers.cy_flag() == 1);
+            }
+            CCF => {
+                self.registers.set_flags(self.registers.z_flag() == 1, self.registers.n_flag() == 1, self.registers.h_flag() == 1, (!self.registers.cy_flag() & 0x1) == 1);
+            }
+            SCF => {
+                self.registers.set_flags(self.registers.z_flag() == 1, false, false, true);
+            }
+            DI => {
+                self.ime = false;
+            }
+            EI => {
+                self.ime = true;
+            }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
 
@@ -1509,5 +1561,59 @@ mod tests {
         assert_eq!(sp, 0xFFFC);
         assert_eq!(cpu.memory_bus.get8(sp), 0x04);
         assert_eq!(cpu.memory_bus.get8(sp + 1), 0x00);
+    }
+
+    #[test]
+    fn test_27() {
+        let mb = MemoryBus::new_from_slice(&[0x80, 0x27, 0x90, 0x27]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(A, 0x45);
+        cpu.registers.set8(B, 0x38);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.get8(A), 0x83);
+        assert_eq!(cpu.registers.cy_flag(), 0);
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.get8(A), 0x45);
+    }
+
+    #[test]
+    fn test_2f() {
+        let mb = MemoryBus::new_from_slice(&[0x2F]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set8(A, 0x35);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.get8(A), 0xCA);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.n_flag(), 1);
+    }
+
+    #[test]
+    fn test_3f() {
+        let mb = MemoryBus::new_from_slice(&[0x3F]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, true, true, false);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.z_flag(), 1);
+        assert_eq!(cpu.registers.h_flag(), 1);
+        assert_eq!(cpu.registers.n_flag(), 1);
+        assert_eq!(cpu.registers.cy_flag(), 1);
+    }
+
+    #[test]
+    fn test_37() {
+        let mb = MemoryBus::new_from_slice(&[0x37]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, true, true, false);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.z_flag(), 1);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 1);
     }
 }
