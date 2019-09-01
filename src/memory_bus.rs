@@ -17,7 +17,7 @@ impl MemoryBus {
         }
     }
 
-    fn load(&mut self, data: &[u8], start_at: usize) {
+    pub fn load(&mut self, data: &[u8], start_at: usize) {
         for (i, &v) in data.iter().enumerate() {
             self.memory[start_at + i] = v
         }

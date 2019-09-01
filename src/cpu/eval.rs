@@ -1,4 +1,3 @@
-use crate::memory_bus::{MemoryBus};
 use super::registers::{Register};
 use super::instr::{Src, FlagCondition, Opcode, Instr};
 
@@ -11,6 +10,10 @@ impl Cpu {
         let instr = self.disassemble();
         let mut inc_pc = true;
         let mut cycles = instr.cycles;
+
+        if self.debug {
+            println!("0x{:X?}: {:X?}", self.registers.pc(), instr.opcode);
+        }
 
         match instr.opcode {
             NOP => {}

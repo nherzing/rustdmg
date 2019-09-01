@@ -5,10 +5,11 @@ mod eval;
 mod instr;
 mod registers;
 
-struct Cpu {
+pub struct Cpu {
     memory_bus: MemoryBus,
     registers: Registers,
-    ime: bool
+    ime: bool,
+    debug: bool
 }
 
 impl Cpu {
@@ -16,8 +17,13 @@ impl Cpu {
         Cpu {
             memory_bus,
             registers: Registers::new(),
-            ime: false
+            ime: false,
+            debug: false
         }
+    }
+
+    pub fn enable_debug(&mut self) {
+        self.debug = true;
     }
 
     pub fn step(&mut self) -> u8 {
