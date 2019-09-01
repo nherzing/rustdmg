@@ -1,6 +1,6 @@
 use crate::memory_bus::{MemoryBus};
 use crate::registers::{Register, Registers};
-use crate::opcode::{Src, Opcode, Instr};
+use crate::opcode::{Src, FlagCondition, Opcode, Instr};
 
 use Opcode::*;
 use Register::*;
@@ -20,6 +20,8 @@ impl Cpu {
 
     pub fn step(&mut self) -> u8 {
         let instr = self.disassemble();
+        let mut inc_pc = true;
+        let mut cycles = instr.cycles;
 
         match instr.opcode {
             NOP => {}
@@ -255,16 +257,49 @@ impl Cpu {
             }
             SET(bi, dst) => {
                 let a = self.get_u8(dst);
-                let mask = (1 << bi);
+                let mask = 1 << bi;
                 let r = a | mask;
-                println!("{} | {} = {}", a, mask, r);
                 self.ld8(dst, Src::D8(r));
+            }
+            JP(fc, addr) => {
+                if self.flag_match(fc) {
+                    let r = self.get_u16(addr);
+                    self.registers.set16(PC, r);
+                    inc_pc = false;
+                } else {
+                    cycles -= 1;
+                }
+            },
+            JR(fc, offset) => {
+                if self.flag_match(fc) {
+                    let r = if offset >= 0 {
+                        self.registers.get16(PC) + (offset as u16)
+                    } else {
+                        self.registers.get16(PC) - (offset*-1) as u16
+                    };
+                    self.registers.set16(PC, r);
+                } else {
+                    cycles -= 1;
+                }
             }
             _ => panic!("Not implemented: {:?}", instr.opcode)
         }
 
-        self.registers.inc_pc(instr.n_bytes);
-        return instr.cycles;
+        if inc_pc {
+            self.registers.inc_pc(instr.n_bytes);
+        }
+
+        return cycles;
+    }
+
+    fn flag_match(&self, fc: FlagCondition) -> bool {
+        match fc {
+            FlagCondition::Z => self.registers.z_flag() == 1,
+            FlagCondition::NZ => self.registers.z_flag() == 0,
+            FlagCondition::C => self.registers.cy_flag() == 1,
+            FlagCondition::NC => self.registers.cy_flag() == 0,
+            FlagCondition::ALWAYS => true
+        }
     }
 
     fn ld8(&mut self, dst: Src, src: Src) {
@@ -1287,5 +1322,84 @@ mod tests {
         // example in gb programming manual is wrong?
         assert_eq!(cpu.registers.pc(), 0x02);
         assert_eq!(cpu.memory_bus.get8(0x1234), 0x08);
+    }
+
+    #[test]
+    fn test_c3() {
+        let mb = MemoryBus::new_from_slice(&[0xC3, 0x12, 0x80]);
+        let mut cpu = Cpu::new(mb);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x8012);
+    }
+
+    #[test]
+    fn test_e9() {
+        let mb = MemoryBus::new_from_slice(&[0xE9]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set16(HL, 0x8012);
+
+        assert_eq!(cpu.step(), 1);
+        assert_eq!(cpu.registers.pc(), 0x8012);
+    }
+
+    #[test]
+    fn test_c2() {
+        let mb = MemoryBus::new_from_slice(&[0xC2, 0x00, 0x80]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, false, false, false);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.pc(), 0x03);
+    }
+
+    #[test]
+    fn test_ca() {
+        let mb = MemoryBus::new_from_slice(&[0xCA, 0x00, 0x80]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, false, false, false);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x8000);
+    }
+
+    #[test]
+    fn test_d2() {
+        let mb = MemoryBus::new_from_slice(&[0xD2, 0x00, 0x80]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, false, false, false);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x8000);
+    }
+
+    #[test]
+    fn test_da() {
+        let mb = MemoryBus::new_from_slice(&[0xDA, 0x00, 0x80]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, false, false, false);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.pc(), 0x03);
+    }
+
+    #[test]
+    fn test_18() {
+        let mb = MemoryBus::new_from_slice(&[0x18, 0x03]);
+        let mut cpu = Cpu::new(mb);
+
+        assert_eq!(cpu.step(), 3);
+        assert_eq!(cpu.registers.pc(), 0x05);
+    }
+
+    #[test]
+    fn test_28() {
+        let mb = MemoryBus::new_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x28, 0xFD]);
+        let mut cpu = Cpu::new(mb);
+        cpu.registers.set_flags(true, false, false, false);
+        cpu.registers.set16(PC, 4);
+
+        assert_eq!(cpu.step(), 4);
+        assert_eq!(cpu.registers.pc(), 0x03);
     }
 }

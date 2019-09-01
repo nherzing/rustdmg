@@ -14,6 +14,15 @@ pub enum Src {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub enum FlagCondition {
+    Z,
+    NZ,
+    C,
+    NC,
+    ALWAYS
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum Opcode {
     NOP,
     LD8(Src, Src),
@@ -50,6 +59,8 @@ pub enum Opcode {
     BIT(u8, Src),
     SET(u8, Src),
     RES(u8, Src),
+    JP(FlagCondition, Src),
+    JR(FlagCondition, i8),
     HALT,
 }
 
@@ -69,6 +80,7 @@ impl Instr {
     pub fn disassemble(bytes: &[u8]) -> Instr {
         let b1 = bytes[1];
         let b12 = ((bytes[1] as u16) << 8) | (bytes[2] as u16);
+        let b21 = ((bytes[2] as u16) << 8) | (bytes[1] as u16);
 
         match bytes[0] {
             0x00 => n(NOP, 1, 1),
@@ -94,6 +106,7 @@ impl Instr {
             0x15 => n(DEC8(Src::Reg(D)), 1, 1),
             0x16 => n(LD8(Src::Reg(D), Src::D8(b1)), 2, 2),
             0x17 => n(RLA, 1, 1),
+            0x18 => n(JR(FlagCondition::ALWAYS, b1 as i8), 3, 2),
             0x19 => n(ADD16(HL, Src::Reg(DE)), 2, 1),
             0x1A => n(LD8(Src::Reg(A), Src::Deref(DE)), 2, 1),
             0x1B => n(DEC16(DE), 2, 1),
@@ -101,24 +114,28 @@ impl Instr {
             0x1D => n(DEC8(Src::Reg(E)), 1, 1),
             0x1E => n(LD8(Src::Reg(E), Src::D8(b1)), 2, 2),
             0x1F => n(RRA, 1, 1),
+            0x20 => n(JR(FlagCondition::NZ, b1 as i8), 4, 2),
             0x21 => n(LD16(Src::Reg(HL), Src::D16(b12)), 3, 3),
             0x22 => n(LD8I(Src::Deref(HL), Src::Reg(A)), 2, 1),
             0x23 => n(INC16(HL), 2, 1),
             0x24 => n(INC8(Src::Reg(H)), 1, 1),
             0x25 => n(DEC8(Src::Reg(H)), 1, 1),
             0x26 => n(LD8(Src::Reg(H), Src::D8(b1)), 2, 2),
+            0x28 => n(JR(FlagCondition::Z, b1 as i8), 4, 2),
             0x29 => n(ADD16(HL, Src::Reg(HL)), 2, 1),
             0x2A => n(LD8I(Src::Reg(A), Src::Deref(HL)), 2, 1),
             0x2B => n(DEC16(HL), 2, 1),
             0x2C => n(INC8(Src::Reg(L)), 1, 1),
             0x2D => n(DEC8(Src::Reg(L)), 1, 1),
             0x2E => n(LD8(Src::Reg(L), Src::D8(b1)), 2, 2),
+            0x30 => n(JR(FlagCondition::NC, b1 as i8), 4, 2),
             0x31 => n(LD16(Src::Reg(SP), Src::D16(b12)), 3, 3),
             0x32 => n(LD8D(Src::Deref(HL), Src::Reg(A)), 2, 1),
             0x33 => n(INC16(SP), 2, 1),
             0x34 => n(INC8(Src::Deref(HL)), 3, 1),
             0x35 => n(DEC8(Src::Deref(HL)), 3, 1),
             0x36 => n(LD8(Src::Deref(HL), Src::D8(b1)), 2, 2),
+            0x38 => n(JR(FlagCondition::C, b1 as i8), 4, 2),
             0x39 => n(ADD16(HL, Src::Reg(SP)), 2, 1),
             0x3A => n(LD8D(Src::Reg(A), Src::Deref(HL)), 2, 1),
             0x3B => n(DEC16(SP), 2, 1),
@@ -254,12 +271,17 @@ impl Instr {
             0xBE => n(CP(Src::Deref(HL)), 2, 1),
             0xBF => n(CP(Src::Reg(A)), 1, 1),
             0xC1 => n(POP(BC), 4, 1),
+            0xC2 => n(JP(FlagCondition::NZ, Src::D16(b21)), 4, 3),
+            0xC3 => n(JP(FlagCondition::ALWAYS, Src::D16(b21)), 4, 3),
             0xC5 => n(PUSH(BC), 4, 1),
             0xC6 => n(ADD8(Src::D8(b1)), 2, 2),
+            0xCA => n(JP(FlagCondition::Z, Src::D16(b21)), 4, 3),
             0xCE => n(ADC8(Src::D8(b1)), 2, 2),
             0xD1 => n(POP(DE), 4, 1),
+            0xD2 => n(JP(FlagCondition::NC, Src::D16(b21)), 4, 3),
             0xD5 => n(PUSH(DE), 4, 1),
             0xD6 => n(SUB8(Src::D8(b1)), 2, 2),
+            0xDA => n(JP(FlagCondition::C, Src::D16(b21)), 4, 3),
             0xDE => n(SBC8(Src::D8(b1)), 2, 2),
             0xE0 => n(LD8(Src::A8(b1), Src::Reg(A)), 3, 2),
             0xE1 => n(POP(HL), 4, 1),
@@ -267,6 +289,7 @@ impl Instr {
             0xE2 => n(LD8(Src::Deref(C), Src::Reg(A)), 2, 1),
             0xE6 => n(AND(Src::D8(b1)), 2, 2),
             0xE8 => n(ADD16(SP, Src::I8(b1 as i8)), 4, 1),
+            0xE9 => n(JP(FlagCondition::ALWAYS, Src::Reg(HL)), 1, 1),
             0xEA => n(LD8(Src::A16(b12), Src::Reg(A)), 4, 3),
             0xEE => n(XOR(Src::D8(b1)), 2, 2),
             0xF0 => n(LD8(Src::Reg(A), Src::A8(b1)), 3, 2),
