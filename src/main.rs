@@ -4,6 +4,8 @@ use structopt::StructOpt;
 
 mod memory;
 mod cpu;
+mod ram_device;
+mod rom_device;
 mod gameboy;
 
 #[derive(StructOpt)]

@@ -16,7 +16,7 @@ pub enum Register {
     PC
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Registers {
     a: u8,
     b: u8,

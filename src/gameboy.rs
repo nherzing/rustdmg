@@ -1,51 +1,9 @@
 use crate::memory::memory_bus::{MemoryBus};
-use crate::memory::memory_map::{MemoryMap, MemoryMappedDevice, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
+use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
+use crate::ram_device::{RamDevice};
+use crate::rom_device::{RomDevice};
 
 use crate::cpu::{Cpu};
-
-pub struct EverythingDevice {
-    memory: [u8; 0x10000]
-}
-
-impl EverythingDevice {
-    pub fn new(data: &[u8]) -> EverythingDevice {
-        let mut memory = [0; 0x10000];
-        for (i, &v) in data.iter().enumerate() {
-            memory[i] = v
-        }
-        EverythingDevice { memory }
-    }
-
-    pub fn load(&mut self, data: &[u8]) {
-        for (i, &v) in data.iter().enumerate() {
-            self.memory[i] = v
-        }
-    }
-}
-
-impl MemoryMappedDevice for EverythingDevice {
-    fn id(&self) -> MemoryMappedDeviceId {
-        MemoryMappedDeviceId::Everything
-    }
-
-    fn mapped_areas(&self) -> Vec<MappedArea> {
-        vec![MappedArea(0, 0x10000)]
-    }
-
-    fn set8(&mut self, addr: u16, byte: u8) {
-        self.memory[addr as usize] = byte;
-    }
-
-    fn get8(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
-    }
-
-    fn get_slice(&self, addr: u16, size: usize) -> &[u8] {
-        let idx = addr as usize;
-        &self.memory[idx..idx+size]
-    }
-}
-
 
 pub struct Gameboy {
     cpu: Cpu,
@@ -55,23 +13,31 @@ pub struct Gameboy {
 
 impl Gameboy {
     pub fn boot(cartridge: &[u8], debug: bool) {
-        let boot_rom = include_bytes!("boot_rom.gb");
-        let mut device = EverythingDevice::new(boot_rom);
-        device.load(cartridge);
-        device.load(boot_rom);
-        let mut mm = MemoryMap::new();
-        mm.register(&device);
-        let mut mmdm = MemoryMappedDeviceManager::new();
-        mmdm.register(MemoryMappedDeviceId::Everything, Box::new(device));
         let mut cpu = Cpu::new();
         if debug { cpu.enable_debug(); }
         let mut gameboy = Gameboy {
             cpu,
-            memory_map: mm,
-            device_manager: mmdm
+            memory_map: MemoryMap::new(),
+            device_manager: MemoryMappedDeviceManager::new()
         };
 
+        gameboy.map_devices(cartridge);
         gameboy.go();
+    }
+
+    fn map_devices(&mut self, cartridge: &[u8]) {
+        let boot_rom = include_bytes!("boot_rom.gb");
+        self.memory_map.register(MemoryMappedDeviceId::ROMBank0, &[MappedArea(0, 0x8000)]);
+
+        let mut rom_bank = RomDevice::new(0x8000);
+        rom_bank.load(cartridge);
+        rom_bank.load(boot_rom);
+
+        let the_rest = RamDevice::new(0x8000, 0x8000);
+        self.memory_map.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0x8000, 0x8000)]);
+
+        self.device_manager.register(MemoryMappedDeviceId::ROMBank0, Box::new(rom_bank));
+        self.device_manager.register(MemoryMappedDeviceId::RAMBank0, Box::new(the_rest));
     }
 
     fn go(&mut self) {

@@ -5,8 +5,6 @@ const MEMORY_SIZE: usize = 0x10000;
 pub struct MappedArea(pub u16, pub usize);
 
 pub trait MemoryMappedDevice {
-    fn mapped_areas(&self) -> Vec<MappedArea>;
-    fn id(&self) -> MemoryMappedDeviceId;
     fn set8(&mut self, addr: u16, byte: u8);
     fn get8(&self, addr: u16) -> u8;
     fn get_slice(&self, addr: u16, size: usize) -> &[u8];
@@ -14,7 +12,8 @@ pub trait MemoryMappedDevice {
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum MemoryMappedDeviceId {
-    Everything
+    ROMBank0,
+    RAMBank0
 }
 
 pub struct MemoryMap {
@@ -24,21 +23,24 @@ pub struct MemoryMap {
 impl MemoryMap {
     pub fn new() -> MemoryMap {
         MemoryMap {
-            memory_map: [Some(MemoryMappedDeviceId::Everything); MEMORY_SIZE]
+            memory_map: [None; MEMORY_SIZE]
         }
     }
 
-    pub fn register(&mut self, device: &MemoryMappedDevice) {
-        for area in device.mapped_areas() {
+    pub fn register(&mut self, id: MemoryMappedDeviceId, mapped_areas: &[MappedArea]) {
+        for area in mapped_areas {
             let start = area.0 as usize;
             for i in start..(start as usize)+area.1 {
-                self.memory_map[i] = Some(device.id());
+                self.memory_map[i] = Some(id);
             }
         }
     }
 
     pub fn get_id(&self, addr: u16) -> MemoryMappedDeviceId {
-        self.memory_map[addr as usize].expect("No device mapped for address!")
+        match self.memory_map[addr as usize] {
+            None => panic!("No device mapped for address 0x{:X}", addr),
+            Some(id) => id
+        }
     }
 }
 

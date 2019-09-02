@@ -1,6 +1,7 @@
 use super::registers::{Register};
 use crate::memory::memory_bus::{MemoryBus};
-use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDevice, MemoryMappedDeviceId};
+use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
+use crate::ram_device::{RamDevice};
 use super::instr::{Src, FlagCondition, Opcode, Instr};
 
 use super::Cpu;
@@ -466,55 +467,13 @@ impl Cpu {
 mod tests {
     use super::*;
 
-    pub struct EverythingDevice {
-        memory: [u8; 0x10000]
-    }
-
-    impl EverythingDevice {
-        pub fn new(data: &[u8]) -> EverythingDevice {
-            let mut memory = [0; 0x10000];
-            for (i, &v) in data.iter().enumerate() {
-                memory[i] = v
-            }
-            EverythingDevice { memory }
-        }
-
-        pub fn load(&mut self, data: &[u8]) {
-            for (i, &v) in data.iter().enumerate() {
-                self.memory[i] = v
-            }
-        }
-    }
-
-    impl MemoryMappedDevice for EverythingDevice {
-        fn id(&self) -> MemoryMappedDeviceId {
-            MemoryMappedDeviceId::Everything
-        }
-
-        fn mapped_areas(&self) -> Vec<MappedArea> {
-            vec![MappedArea(0, 0x10000)]
-        }
-
-        fn set8(&mut self, addr: u16, byte: u8) {
-            self.memory[addr as usize] = byte;
-        }
-
-        fn get8(&self, addr: u16) -> u8 {
-            self.memory[addr as usize]
-        }
-
-        fn get_slice(&self, addr: u16, size: usize) -> &[u8] {
-            let idx = addr as usize;
-            &self.memory[idx..idx+size]
-        }
-    }
-
     fn new_from_slice(data: &[u8]) -> (MemoryMap, MemoryMappedDeviceManager) {
-        let device = EverythingDevice::new(data);
+        let mut device = RamDevice::new(0, 0x10000);
+        device.load(data);
         let mut mm = MemoryMap::new();
-        mm.register(&device);
+        mm.register(MemoryMappedDeviceId::ROMBank0, &[MappedArea(0, 0x10000)]);
         let mut mmdm = MemoryMappedDeviceManager::new();
-        mmdm.register(MemoryMappedDeviceId::Everything, Box::new(device));
+        mmdm.register(MemoryMappedDeviceId::ROMBank0, Box::new(device));
         (mm, mmdm)
     }
 
@@ -580,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_ea() {
-        let (mut mm, mut mmdm) = new_from_slice(&[0xEA, 0xDE, 0xAD]);
+        let (mut mm, mut mmdm) = new_from_slice(&[0xEA, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
         let mut cpu = Cpu::new();
         cpu.registers.set8(C, 0x34);
@@ -698,7 +657,7 @@ mod tests {
 
     #[test]
     fn test_01() {
-        let (mut mm, mut mmdm) = new_from_slice(&[0x01, 0xDE, 0xAD]);
+        let (mut mm, mut mmdm) = new_from_slice(&[0x01, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
         let mut cpu = Cpu::new();
 
