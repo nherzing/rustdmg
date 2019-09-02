@@ -6,16 +6,14 @@ mod instr;
 mod registers;
 
 pub struct Cpu {
-    memory_bus: MemoryBus,
     registers: Registers,
     ime: bool,
     debug: bool
 }
 
 impl Cpu {
-    pub fn new(memory_bus: MemoryBus) -> Cpu {
+    pub fn new() -> Cpu {
         Cpu {
-            memory_bus,
             registers: Registers::new(),
             ime: false,
             debug: false
@@ -26,7 +24,7 @@ impl Cpu {
         self.debug = true;
     }
 
-    pub fn step(&mut self) -> u8 {
-        self.eval()
+    pub fn step(&mut self, memory_bus: &mut MemoryBus) -> u8 {
+        self.eval(memory_bus)
     }
 }
