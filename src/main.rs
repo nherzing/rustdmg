@@ -2,7 +2,7 @@ use std::fs;
 use structopt::StructOpt;
 
 
-mod memory_bus;
+mod memory;
 mod cpu;
 mod gameboy;
 

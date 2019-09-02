@@ -1,5 +1,51 @@
-use crate::memory_bus::{MemoryBus, EverythingDevice, MemoryMappedDeviceManager, MemoryMappedDeviceId, MemoryMap};
+use crate::memory::memory_bus::{MemoryBus};
+use crate::memory::memory_map::{MemoryMap, MemoryMappedDevice, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
+
 use crate::cpu::{Cpu};
+
+pub struct EverythingDevice {
+    memory: [u8; 0x10000]
+}
+
+impl EverythingDevice {
+    pub fn new(data: &[u8]) -> EverythingDevice {
+        let mut memory = [0; 0x10000];
+        for (i, &v) in data.iter().enumerate() {
+            memory[i] = v
+        }
+        EverythingDevice { memory }
+    }
+
+    pub fn load(&mut self, data: &[u8]) {
+        for (i, &v) in data.iter().enumerate() {
+            self.memory[i] = v
+        }
+    }
+}
+
+impl MemoryMappedDevice for EverythingDevice {
+    fn id(&self) -> MemoryMappedDeviceId {
+        MemoryMappedDeviceId::Everything
+    }
+
+    fn mapped_areas(&self) -> Vec<MappedArea> {
+        vec![MappedArea(0, 0x10000)]
+    }
+
+    fn set8(&mut self, addr: u16, byte: u8) {
+        self.memory[addr as usize] = byte;
+    }
+
+    fn get8(&self, addr: u16) -> u8 {
+        self.memory[addr as usize]
+    }
+
+    fn get_slice(&self, addr: u16, size: usize) -> &[u8] {
+        let idx = addr as usize;
+        &self.memory[idx..idx+size]
+    }
+}
+
 
 pub struct Gameboy {
     cpu: Cpu,

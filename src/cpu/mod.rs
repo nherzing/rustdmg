@@ -1,4 +1,4 @@
-use crate::memory_bus::{MemoryBus};
+use crate::memory::memory_bus::{MemoryBus};
 use self::registers::{Registers};
 
 mod eval;
