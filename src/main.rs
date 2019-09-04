@@ -3,6 +3,7 @@ use structopt::StructOpt;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+mod clocks;
 mod memory;
 mod cpu;
 mod ram_device;

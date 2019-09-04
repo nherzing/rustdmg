@@ -1,16 +1,16 @@
+use std::{thread, time};
 use crate::memory::memory_bus::{MemoryBus};
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::{RamDevice};
 use crate::rom_device::{RomDevice};
 use crate::lcd_controller::{LcdController};
 use crate::renderer::{Renderer};
+use crate::clocks::{NS_PER_SCREEN_REFRESH};
 
 use crate::cpu::{Cpu};
 
 use MemoryMappedDeviceId::*;
 
-const CLOCK_SPEED: u32 = 1024 * 1024;
-const SCREEN_REFRESH: u32 = 17556;
 
 pub struct Gameboy<'a> {
     cpu: Cpu,
@@ -40,7 +40,6 @@ impl<'a> Gameboy<'a> {
 
         gameboy.renderer.update_game(gameboy.device_manager.lcd_controller().frame_buffer());
         gameboy.renderer.refresh();
-
         gameboy
     }
 
@@ -60,14 +59,27 @@ impl<'a> Gameboy<'a> {
     }
 
     pub fn tick(&mut self) {
+        let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH);
+        let now = time::Instant::now();
         let mut mb = MemoryBus::new(&mut self.memory_map, &mut self.device_manager);
 
-        let mut cycles = 0;
-        while cycles < SCREEN_REFRESH {
-            cycles += self.cpu.step(&mut mb);
-        }
+        loop {
+            let clocks = self.cpu.step(&mut mb);
+            mb.devices().lcd_controller().tick(clocks);
 
-        self.renderer.update_game(self.device_manager.lcd_controller().frame_buffer());
-        self.renderer.refresh();
+            let lcd_controller = mb.devices().lcd_controller();
+            if lcd_controller.wants_refresh() {
+                lcd_controller.refresh();
+                self.renderer.update_game(lcd_controller.frame_buffer());
+                self.renderer.refresh();
+
+                let to_wait = ns_per_screen_refresh.checked_sub(now.elapsed());
+                match to_wait {
+                    Some(d) => { thread::sleep(d) }
+                    None => { panic!("TOO SLOW!") }
+                }
+                return
+            }
+        }
     }
 }

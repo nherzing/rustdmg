@@ -2,16 +2,20 @@ use super::memory_map::{MemoryMap, MemoryMappedDeviceManager, MemoryMappedDevice
 
 pub struct MemoryBus<'a> {
     memory_map: &'a mut MemoryMap,
-    resources: &'a mut MemoryMappedDeviceManager
+    devices: &'a mut MemoryMappedDeviceManager
 }
 
 impl<'a> MemoryBus<'a> {
-    pub fn new(memory_map: &'a mut MemoryMap, resources: &'a mut MemoryMappedDeviceManager) -> MemoryBus<'a> {
-        MemoryBus { memory_map, resources }
+    pub fn new(memory_map: &'a mut MemoryMap, devices: &'a mut MemoryMappedDeviceManager) -> MemoryBus<'a> {
+        MemoryBus { memory_map, devices }
+    }
+
+    pub fn devices(&mut self) -> &mut MemoryMappedDeviceManager {
+        self.devices
     }
 
     fn get_device(&mut self, addr: u16) -> &mut MemoryMappedDevice {
-        self.resources.get(self.memory_map.get_id(addr))
+        self.devices.get(self.memory_map.get_id(addr))
     }
 
     pub fn set8(&mut self, addr: u16, byte: u8) {
