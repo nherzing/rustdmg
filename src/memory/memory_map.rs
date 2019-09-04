@@ -50,35 +50,58 @@ impl MemoryMap {
 }
 
 pub struct MemoryMappedDeviceManager {
-    rom_bank0: RomDevice,
-    ram_bank0: RamDevice,
-    lcd_controller: LcdController,
+    rom_bank0: Option<RomDevice>,
+    ram_bank0: Option<RamDevice>,
+    lcd_controller: Option<LcdController>,
 }
 
 impl MemoryMappedDeviceManager {
-    pub fn new(rom_bank0: RomDevice, ram_bank0: RamDevice, lcd_controller: LcdController) -> Self {
+    pub fn new() -> Self {
         MemoryMappedDeviceManager {
-            rom_bank0, ram_bank0, lcd_controller
+            rom_bank0: None,
+            ram_bank0: None,
+            lcd_controller: None
         }
     }
 
+    pub fn set_rom_bank0(&mut self, device: RomDevice) {
+        self.rom_bank0 = Some(device);
+    }
+
     pub fn rom_bank0(&mut self) -> &mut RomDevice {
-        &mut self.rom_bank0
+        match self.rom_bank0 {
+            Some(ref mut v) => v,
+            None => panic!("No registered ROMBank0")
+        }
+    }
+
+    pub fn set_ram_bank0(&mut self, device: RamDevice) {
+        self.ram_bank0 = Some(device);
     }
 
     pub fn ram_bank0(&mut self) -> &mut RamDevice {
-        &mut self.ram_bank0
+        match self.ram_bank0 {
+            Some(ref mut v) => v,
+            None => panic!("No registered RAMBank0")
+        }
+    }
+
+    pub fn set_lcd_controller(&mut self, device: LcdController) {
+        self.lcd_controller = Some(device);
     }
 
     pub fn lcd_controller(&mut self) -> &mut LcdController {
-        &mut self.lcd_controller
+        match self.lcd_controller {
+            Some(ref mut v) => v,
+            None => panic!("No registered LCD")
+        }
     }
 
     pub fn get(&mut self, id: MemoryMappedDeviceId) -> &mut MemoryMappedDevice {
         match id {
-            ROMBank0 => &mut self.rom_bank0,
-            RAMBank0 => &mut self.ram_bank0,
-            LCD => &mut self.lcd_controller
+            ROMBank0 => self.rom_bank0(),
+            RAMBank0 => self.ram_bank0(),
+            LCD => self.lcd_controller()
         }
     }
 }

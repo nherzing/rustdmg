@@ -24,11 +24,11 @@ impl<'a> Gameboy<'a> {
         let mut cpu = Cpu::new();
         if debug { cpu.enable_debug(); }
 
-        let device_manager = MemoryMappedDeviceManager::new(
-            RomDevice::new(0x8000),
-            RamDevice::new(0x8000, 0x8000),
-            LcdController::new()
-        );
+        let mut device_manager = MemoryMappedDeviceManager::new();
+        device_manager.set_rom_bank0(RomDevice::new(0x8000));
+        device_manager.set_ram_bank0(RamDevice::new(0x8000, 0x8000));
+        device_manager.set_lcd_controller(LcdController::new());
+
         let mut gameboy = Gameboy {
             cpu,
             memory_map: MemoryMap::new(),
@@ -47,36 +47,35 @@ impl<'a> Gameboy<'a> {
         let boot_rom = include_bytes!("boot_rom.gb");
         self.memory_map.register(ROMBank0, &[MappedArea(0, 0x8000)]);
 
-        let mut rom_bank = self.device_manager.rom_bank0();
+        let rom_bank = self.device_manager.rom_bank0();
         rom_bank.load(cartridge);
         rom_bank.load(boot_rom);
 
-        let the_rest = self.device_manager.ram_bank0();
         self.memory_map.register(RAMBank0, &[MappedArea(0x8000, 0x8000)]);
-
-        let lcd_controller = self.device_manager.lcd_controller();
         self.memory_map.register(LCD, &LcdController::mapped_areas());
     }
 
     pub fn tick(&mut self) {
-        let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH);
+        let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH as u64);
         let now = time::Instant::now();
         let mut mb = MemoryBus::new(&mut self.memory_map, &mut self.device_manager);
 
         loop {
-            let clocks = self.cpu.step(&mut mb);
-            mb.devices().lcd_controller().tick(clocks);
+            let clocks = self.cpu.step(&mut mb);;
 
             let lcd_controller = mb.devices().lcd_controller();
+            lcd_controller.tick(clocks);
+
             if lcd_controller.wants_refresh() {
                 lcd_controller.refresh();
                 self.renderer.update_game(lcd_controller.frame_buffer());
                 self.renderer.refresh();
 
-                let to_wait = ns_per_screen_refresh.checked_sub(now.elapsed());
+                let elapsed = now.elapsed();
+                let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
                 match to_wait {
                     Some(d) => { thread::sleep(d) }
-                    None => { panic!("TOO SLOW!") }
+                    None => { println!("TOO SLOW: {:?}", elapsed) }
                 }
                 return
             }

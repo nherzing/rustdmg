@@ -44,14 +44,9 @@ impl<'a> Renderer<'a> {
         Renderer { canvas, game_texture }
     }
 
-    pub fn present(&mut self) {
-        self.canvas.clear();
-        self.canvas.present();
-    }
-
     pub fn refresh(&mut self) {
         self.canvas.clear();
-        self.canvas.copy(&self.game_texture, None, None);
+        self.canvas.copy(&self.game_texture, None, None).unwrap();
         self.canvas.present();
     }
 
@@ -66,6 +61,6 @@ impl<'a> Renderer<'a> {
                     buffer[offset + 2] = color.b;
                 }
             }
-        });
+        }).unwrap();
     }
 }

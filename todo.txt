@@ -1,0 +1,2 @@
+- fix specs
+- render without sub-screen timing

@@ -471,9 +471,9 @@ mod tests {
         let mut device = RamDevice::new(0, 0x10000);
         device.load(data);
         let mut mm = MemoryMap::new();
-        mm.register(MemoryMappedDeviceId::ROMBank0, &[MappedArea(0, 0x10000)]);
+        mm.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0, 0x10000)]);
         let mut mmdm = MemoryMappedDeviceManager::new();
-        mmdm.register(MemoryMappedDeviceId::ROMBank0, Box::new(device));
+        mmdm.set_ram_bank0(device);
         (mm, mmdm)
     }
 

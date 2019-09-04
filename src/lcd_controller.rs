@@ -3,33 +3,33 @@ use crate::memory::memory_map::{MappedArea};
 use crate::renderer::{Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::clocks::{CLOCKS_PER_SCREEN_REFRESH};
 
-macro_rules! b0 {
-    ($x:expr) => (($x >> 0) & 0x1);
-}
+// macro_rules! b0 {
+//     ($x:expr) => (($x >> 0) & 0x1);
+// }
 
-macro_rules! b1 {
-    ($x:expr) => (($x >> 1) & 0x1);
-}
+// macro_rules! b1 {
+//     ($x:expr) => (($x >> 1) & 0x1);
+// }
 
-macro_rules! b2 {
-    ($x:expr) => (($x >> 2) & 0x1);
-}
+// macro_rules! b2 {
+//     ($x:expr) => (($x >> 2) & 0x1);
+// }
 
-macro_rules! b3 {
-    ($x:expr) => (($x >> 3) & 0x1);
-}
+// macro_rules! b3 {
+//     ($x:expr) => (($x >> 3) & 0x1);
+// }
 
-macro_rules! b4 {
-    ($x:expr) => (($x >> 4) & 0x1);
-}
+// macro_rules! b4 {
+//     ($x:expr) => (($x >> 4) & 0x1);
+// }
 
-macro_rules! b5 {
-    ($x:expr) => (($x >> 5) & 0x1);
-}
+// macro_rules! b5 {
+//     ($x:expr) => (($x >> 5) & 0x1);
+// }
 
-macro_rules! b6 {
-    ($x:expr) => (($x >> 6) & 0x1);
-}
+// macro_rules! b6 {
+//     ($x:expr) => (($x >> 6) & 0x1);
+// }
 
 macro_rules! b7 {
     ($x:expr) => (($x >> 7) & 0x1);
@@ -66,7 +66,7 @@ pub struct LcdController {
     obp1: u8,
     wy: u8,
     wx: u8,
-    clocks: u64
+    clocks_since_render: u32
 }
 
 impl LcdController {
@@ -86,7 +86,7 @@ impl LcdController {
             obp1: 0,
             wy: 0,
             wx: 0,
-            clocks: 0
+            clocks_since_render: 0
         }
     }
 
@@ -102,16 +102,16 @@ impl LcdController {
     }
 
     pub fn tick(&mut self, clocks: u32) {
-        if b0!(self.lcdc) == 0 { return }
-        self.clocks += 1;
+        self.clocks_since_render += clocks;
+        if b7!(self.lcdc) == 0 { return }
     }
 
     pub fn wants_refresh(&self) -> bool {
-        self.clocks >= CLOCKS_PER_SCREEN_REFRESH
+        self.clocks_since_render >= CLOCKS_PER_SCREEN_REFRESH
     }
 
     pub fn refresh(&mut self) {
-        self.clocks = 0;
+        self.clocks_since_render = 0;
     }
 }
 
@@ -124,7 +124,7 @@ impl MemoryMappedDevice for LcdController {
             BGP => { self.bgp = byte }
             SCY => { self.scy = byte }
             LCDC => {
-                if b0!(self.lcdc) == 0 && b0!(byte) == 1 {
+                if b7!(self.lcdc) == 0 && b7!(byte) == 1 {
                     for p in self.frame_buffer.iter_mut() {
                         *p = Color::White;
                     }
