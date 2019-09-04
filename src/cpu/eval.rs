@@ -9,14 +9,14 @@ use Opcode::*;
 use Register::*;
 
 impl Cpu {
-    pub fn eval(&mut self, memory_bus: &mut MemoryBus) -> u8 {
+    pub fn eval(&mut self, memory_bus: &mut MemoryBus) -> u32 {
         let instr = self.disassemble(memory_bus);
         let mut inc_pc = true;
         let mut cycles = instr.cycles;
 
-        if self.debug {
-            println!("0x{:X?}: {:X?}", self.registers.pc(), instr.opcode);
-        }
+        // if self.debug {
+        //     println!("0x{:X?}: {:X?}", self.registers.pc(), instr.opcode);
+        // }
 
         match instr.opcode {
             NOP => {}

@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use crate::ram_device::{RamDevice};
+use crate::rom_device::{RomDevice};
+use crate::lcd_controller::{LcdController};
 
 const MEMORY_SIZE: usize = 0x10000;
 
@@ -10,11 +12,14 @@ pub trait MemoryMappedDevice {
     fn get_slice(&self, addr: u16, size: usize) -> &[u8];
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum MemoryMappedDeviceId {
     ROMBank0,
-    RAMBank0
+    RAMBank0,
+    LCD
 }
+
+use MemoryMappedDeviceId::*;
 
 pub struct MemoryMap {
     memory_map: [Option<MemoryMappedDeviceId>; MEMORY_SIZE]
@@ -45,21 +50,35 @@ impl MemoryMap {
 }
 
 pub struct MemoryMappedDeviceManager {
-    devices: HashMap<MemoryMappedDeviceId, Box<MemoryMappedDevice>>
+    rom_bank0: RomDevice,
+    ram_bank0: RamDevice,
+    lcd_controller: LcdController,
 }
 
 impl MemoryMappedDeviceManager {
-    pub fn new() -> MemoryMappedDeviceManager {
+    pub fn new(rom_bank0: RomDevice, ram_bank0: RamDevice, lcd_controller: LcdController) -> Self {
         MemoryMappedDeviceManager {
-            devices: HashMap::new()
+            rom_bank0, ram_bank0, lcd_controller
         }
     }
 
-    pub fn register(&mut self, id: MemoryMappedDeviceId, device: Box<MemoryMappedDevice>) {
-        self.devices.insert(id, device);
+    pub fn rom_bank0(&mut self) -> &mut RomDevice {
+        &mut self.rom_bank0
+    }
+
+    pub fn ram_bank0(&mut self) -> &mut RamDevice {
+        &mut self.ram_bank0
+    }
+
+    pub fn lcd_controller(&mut self) -> &mut LcdController {
+        &mut self.lcd_controller
     }
 
     pub fn get(&mut self, id: MemoryMappedDeviceId) -> &mut MemoryMappedDevice {
-        &mut **self.devices.get_mut(&id).expect("No device mapped")
+        match id {
+            ROMBank0 => &mut self.rom_bank0,
+            RAMBank0 => &mut self.ram_bank0,
+            LCD => &mut self.lcd_controller
+        }
     }
 }

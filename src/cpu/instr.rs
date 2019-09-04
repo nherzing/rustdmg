@@ -80,11 +80,11 @@ use Opcode::*;
 
 pub struct Instr {
     pub opcode: Opcode,
-    pub cycles: u8,
+    pub cycles: u32,
     pub n_bytes: u16
 }
 
-fn n(opcode: Opcode, cycles: u8, n_bytes: u16) -> Instr {
+fn n(opcode: Opcode, cycles: u32, n_bytes: u16) -> Instr {
     Instr { opcode, cycles, n_bytes }
 }
 

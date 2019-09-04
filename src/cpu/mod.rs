@@ -24,7 +24,7 @@ impl Cpu {
         self.debug = true;
     }
 
-    pub fn step(&mut self, memory_bus: &mut MemoryBus) -> u8 {
+    pub fn step(&mut self, memory_bus: &mut MemoryBus) -> u32 {
         self.eval(memory_bus)
     }
 }
