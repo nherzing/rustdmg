@@ -1,6 +1,6 @@
 use crate::ram_device::{RamDevice};
 use crate::rom_device::{RomDevice};
-use crate::lcd_controller::{LcdController};
+use crate::lcd::{LcdController};
 
 const MEMORY_SIZE: usize = 0x10000;
 

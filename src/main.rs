@@ -9,7 +9,7 @@ mod cpu;
 mod ram_device;
 mod rom_device;
 mod gameboy;
-mod lcd_controller;
+mod lcd;
 mod renderer;
 
 #[derive(StructOpt)]

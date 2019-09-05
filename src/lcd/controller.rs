@@ -2,6 +2,9 @@ use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
 use crate::renderer::{Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::clocks::{CLOCKS_PER_SCREEN_REFRESH};
+use super::tiles::TileSet;
+use super::palette::Palette;
+use super::background_map::BackgroundMap;
 
 // macro_rules! b0 {
 //     ($x:expr) => (($x >> 0) & 0x1);
@@ -51,6 +54,14 @@ const OBP1: u16 = 0xFF49;
 const WY: u16 = 0xFF4A;
 const WX: u16 = 0xFF4B;
 
+const TILE_DATA_START: usize = 0x8000;
+const TILE_DATA_OFFSET: usize = TILE_DATA_START - (VRAM_START as usize);
+const TILE_DATA_SIZE: usize = 0x1800;
+
+const TILE_MAP_START: usize = 0x9800;
+const TILE_MAP_OFFSET: usize = TILE_MAP_START - (VRAM_START as usize);
+const TILE_MAP_SIZE: usize = 0x400;
+
 pub struct LcdController {
     vram: [u8; VRAM_SIZE],
     frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT],
@@ -66,7 +77,8 @@ pub struct LcdController {
     obp1: u8,
     wy: u8,
     wx: u8,
-    clocks_since_render: u32
+    clocks_since_render: u32,
+    background_palette: Palette
 }
 
 impl LcdController {
@@ -86,7 +98,8 @@ impl LcdController {
             obp1: 0,
             wy: 0,
             wx: 0,
-            clocks_since_render: 0
+            clocks_since_render: 0,
+            background_palette: Palette::new(0)
         }
     }
 
@@ -104,6 +117,22 @@ impl LcdController {
     pub fn tick(&mut self, clocks: u32) {
         self.clocks_since_render += clocks;
         if b7!(self.lcdc) == 0 { return }
+        if self.wants_refresh() {
+            self.fill_framebuffer();
+        }
+    }
+
+    fn fill_framebuffer(&mut self) {
+        let bg_tile_data = &self.vram[TILE_DATA_OFFSET..TILE_DATA_OFFSET+TILE_DATA_SIZE];
+        let bg_tile_set = TileSet::new(bg_tile_data);
+        let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
+        let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
+        for y in 0..GAME_HEIGHT {
+            for (idx, p) in bg_map.row_iter(y).enumerate() {
+                let color = self.background_palette.color(p);
+                self.frame_buffer[y * GAME_WIDTH + idx] = color;
+            }
+        }
     }
 
     pub fn wants_refresh(&self) -> bool {
@@ -121,7 +150,10 @@ impl MemoryMappedDevice for LcdController {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize] = byte;
             }
-            BGP => { self.bgp = byte }
+            BGP => {
+                self.bgp = byte;
+                self.background_palette = Palette::new(byte);
+            }
             SCY => { self.scy = byte }
             LCDC => {
                 if b7!(self.lcdc) == 0 && b7!(byte) == 1 {

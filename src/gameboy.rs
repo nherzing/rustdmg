@@ -3,7 +3,7 @@ use crate::memory::memory_bus::{MemoryBus};
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::{RamDevice};
 use crate::rom_device::{RomDevice};
-use crate::lcd_controller::{LcdController};
+use crate::lcd::{LcdController};
 use crate::renderer::{Renderer};
 use crate::clocks::{NS_PER_SCREEN_REFRESH};
 
