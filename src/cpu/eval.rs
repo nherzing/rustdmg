@@ -47,12 +47,19 @@ impl Cpu {
             PUSH(reg) => {
                 let sp = self.registers.get16(SP);
                 self.registers.set16(SP, sp - 2);
-                memory_bus.set16(sp - 2, self.registers.get16(reg));
+                let v = self.registers.get16(reg);
+                let hb = (v >> 8) as u8;
+                let lb = (v & 0xFF) as u8;
+                memory_bus.set8(sp-1, hb);
+                memory_bus.set8(sp-2, lb);
             },
             POP(reg) => {
                 let sp = self.registers.get16(SP);
+                let lb = memory_bus.get8(sp) as u16;
+                let hb = memory_bus.get8(sp+1) as u16;
+                let v = (hb << 8) | lb;
                 self.registers.set16(SP, sp + 2);
-                self.registers.set16(reg, memory_bus.get16(sp));
+                self.registers.set16(reg, v);
             }
             ADD8(src) => {
                 let a = self.registers.get8(A) as u16;
@@ -160,7 +167,8 @@ impl Cpu {
                 self.registers.set_flags(self.registers.z_flag() == 1, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
             }
             INC16(reg) => {
-                self.registers.set16(reg, self.registers.get16(reg) + 1);
+                let safe_inc = (self.registers.get16(reg) as u32 + 1) as u16;
+                self.registers.set16(reg, safe_inc);
             }
             DEC16(reg) => {
                 self.registers.set16(reg, self.registers.get16(reg) - 1);
@@ -689,8 +697,8 @@ mod tests {
 
         assert_eq!(cpu.eval(&mut mb), 4);
         assert_eq!(cpu.registers.pc(), 0x01);
-        assert_eq!(mb.get8(0xFFFC), 0x12);
-        assert_eq!(mb.get8(0xFFFD), 0x34);
+        assert_eq!(mb.get8(0xFFFC), 0x34);
+        assert_eq!(mb.get8(0xFFFD), 0x12);
         assert_eq!(cpu.registers.get16(SP), 0xFFFC);
     }
 
@@ -704,7 +712,8 @@ mod tests {
 
         assert_eq!(cpu.eval(&mut mb), 4);
         assert_eq!(cpu.registers.pc(), 0x01);
-        assert_eq!(cpu.registers.get16(HL), 0xDEAD);
+        assert_eq!(cpu.registers.get8(H), 0xAD);
+        assert_eq!(cpu.registers.get8(L), 0xDE);
         assert_eq!(cpu.registers.get16(SP), 0xFFFE);
     }
 
