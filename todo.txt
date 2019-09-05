@@ -1,2 +1,3 @@
-- fix specs
-- render without sub-screen timing
+- get output working in a test
+- clean up framebuffers & textures
+- investigate push/pop

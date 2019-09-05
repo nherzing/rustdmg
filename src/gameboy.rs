@@ -39,6 +39,7 @@ impl<'a> Gameboy<'a> {
 
 
         gameboy.renderer.update_game(gameboy.device_manager.lcd_controller().frame_buffer());
+        gameboy.renderer.update_bg_tile_texture(gameboy.device_manager.lcd_controller().bg_tile_frame_buffer());
         gameboy.renderer.refresh();
         gameboy
     }
@@ -69,6 +70,8 @@ impl<'a> Gameboy<'a> {
             if lcd_controller.wants_refresh() {
                 lcd_controller.refresh();
                 self.renderer.update_game(lcd_controller.frame_buffer());
+                self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
+
                 self.renderer.refresh();
 
                 let elapsed = now.elapsed();

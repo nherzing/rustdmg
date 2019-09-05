@@ -151,7 +151,8 @@ pub struct LcdController {
     wx: u8,
     clocks_since_render: u32,
     background_palette: Palette,
-    state: State
+    state: State,
+    bg_tile_frame_buffer: [Color; 128 * 128]
 }
 
 impl LcdController {
@@ -173,7 +174,8 @@ impl LcdController {
             wx: 0,
             clocks_since_render: 0,
             background_palette: Palette::new(0),
-            state: State::init()
+            state: State::init(),
+            bg_tile_frame_buffer: [Color::Off; 128 * 128],
         }
     }
 
@@ -188,6 +190,10 @@ impl LcdController {
         &self.frame_buffer
     }
 
+    pub fn bg_tile_frame_buffer(&self) -> &[Color; 128 * 128] {
+        &self.bg_tile_frame_buffer
+    }
+
     pub fn tick(&mut self, clocks: u32) {
         self.clocks_since_render += clocks;
         if b7!(self.lcdc) == 0 { return }
@@ -199,6 +205,7 @@ impl LcdController {
         }
         if self.wants_refresh() {
             self.fill_framebuffer();
+            self.fill_tile_framebuffer();
         }
     }
 
@@ -212,6 +219,24 @@ impl LcdController {
             for (idx, p) in bg_map.row_iter(shifted_y).enumerate() {
                 let color = self.background_palette.color(p);
                 self.frame_buffer[y * GAME_WIDTH + idx] = color;
+            }
+        }
+    }
+
+    fn fill_tile_framebuffer(&mut self) {
+        let bg_tile_data = &self.vram[TILE_DATA_OFFSET..TILE_DATA_OFFSET+TILE_DATA_SIZE];
+        let bg_tile_set = TileSet::new(bg_tile_data);
+
+        for i in 0usize..256 {
+            let tile = bg_tile_set.tile(i as u8);
+            let origin = (i / 16)*128*8 + (i % 16)*8;
+            for j in 0..8 {
+                let row = tile.row(j);
+                let row_start = origin + 128 * j;
+                for (k, p) in row.iter().enumerate() {
+                    let color = self.background_palette.color(*p);
+                    self.bg_tile_frame_buffer[row_start + k] = color;
+                }
             }
         }
     }
@@ -232,11 +257,14 @@ impl MemoryMappedDevice for LcdController {
                 self.vram[(addr - VRAM_START) as usize] = byte;
             }
             BGP => {
+                println!("BGP {:b}", byte);
                 self.bgp = byte;
                 self.background_palette = Palette::new(byte);
             }
-            SCY => { self.scy = byte }
+            SCY => { self.scy = byte; println!("SCY: {}", byte); }
+            SCX => { self.scx = byte }
             LCDC => {
+                println!("LCDC {:b}", byte);
                 if b7!(self.lcdc) == 0 && b7!(byte) == 1 {
                     for p in self.frame_buffer.iter_mut() {
                         *p = Color::White;

@@ -31,7 +31,7 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
-        .window("Gameboy", 160*2, 144*2)
+        .window("Gameboy", 160*2 + 50 + 128*2, 144*2)
         .position_centered()
         .build()
         .unwrap();
