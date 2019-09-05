@@ -62,6 +62,78 @@ const TILE_MAP_START: usize = 0x9800;
 const TILE_MAP_OFFSET: usize = TILE_MAP_START - (VRAM_START as usize);
 const TILE_MAP_SIZE: usize = 0x400;
 
+#[derive(Copy, Clone, Debug)]
+enum Period {
+    OAMSearch,
+    PixelTransfer,
+    HBlank,
+    VBlank
+}
+
+impl Period {
+    fn clocks(&self) -> u32 {
+        match self {
+            OAMSearch => 20,
+            PixelTransfer => 43,
+            HBlank => 51,
+            VBlank => OAMSearch.clocks() + PixelTransfer.clocks() + HBlank.clocks()
+        }
+    }
+
+    fn next(&self, ly: u8) -> (Period, u8) {
+        match self {
+            OAMSearch => (PixelTransfer, ly),
+            PixelTransfer => (HBlank, ly),
+            HBlank => {
+                if ly < 144 {
+                    (OAMSearch, ly+1)
+                } else {
+                    (VBlank, ly+1)
+                }
+            }
+            VBlank => {
+                if ly == 153 {
+                    (OAMSearch, 0)
+                } else {
+                    (VBlank, ly+1)
+                }
+            }
+        }
+    }
+}
+
+use Period::*;
+
+struct State {
+    period: Period,
+    clocks_left: u32,
+    ly: u8
+}
+
+impl State {
+    fn init() -> Self {
+        State {
+            period: OAMSearch,
+            clocks_left: OAMSearch.clocks(),
+            ly: 0
+        }
+    }
+
+    fn tick(&mut self, clocks: u32) -> u32{
+        if self.clocks_left < clocks {
+            let rem_clocks = clocks - self.clocks_left;
+            let (period, ly) = self.period.next(self.ly);
+            self.period = period;
+            self.ly = ly;
+            self.clocks_left = period.clocks();
+            rem_clocks
+        } else {
+            self.clocks_left -= clocks;
+            0
+        }
+    }
+}
+
 pub struct LcdController {
     vram: [u8; VRAM_SIZE],
     frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT],
@@ -78,7 +150,8 @@ pub struct LcdController {
     wy: u8,
     wx: u8,
     clocks_since_render: u32,
-    background_palette: Palette
+    background_palette: Palette,
+    state: State
 }
 
 impl LcdController {
@@ -99,7 +172,8 @@ impl LcdController {
             wy: 0,
             wx: 0,
             clocks_since_render: 0,
-            background_palette: Palette::new(0)
+            background_palette: Palette::new(0),
+            state: State::init()
         }
     }
 
@@ -117,6 +191,12 @@ impl LcdController {
     pub fn tick(&mut self, clocks: u32) {
         self.clocks_since_render += clocks;
         if b7!(self.lcdc) == 0 { return }
+
+        let mut clocks_left = clocks;
+        while clocks_left > 0 {
+            clocks_left = self.state.tick(clocks);
+            self.ly = self.state.ly;
+        }
         if self.wants_refresh() {
             self.fill_framebuffer();
         }
@@ -128,7 +208,8 @@ impl LcdController {
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
         for y in 0..GAME_HEIGHT {
-            for (idx, p) in bg_map.row_iter(y).enumerate() {
+            let shifted_y = (y + (self.scy as usize)) % 256;
+            for (idx, p) in bg_map.row_iter(shifted_y).enumerate() {
                 let color = self.background_palette.color(p);
                 self.frame_buffer[y * GAME_WIDTH + idx] = color;
             }
@@ -173,11 +254,9 @@ impl MemoryMappedDevice for LcdController {
         match addr {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize]
-            },
-            LY => {
-                self.ly
             }
-
+            LY => { self.ly }
+            SCY => { self.scy }
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
 
         }
