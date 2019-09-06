@@ -92,7 +92,6 @@ impl Instr {
     pub fn disassemble(bytes: &[u8]) -> Instr {
         let b0 = bytes[0];
         let b1 = bytes[1];
-        let b12 = ((bytes[1] as u16) << 8) | (bytes[2] as u16);
         let b21 = ((bytes[2] as u16) << 8) | (bytes[1] as u16);
 
         match b0 {
@@ -327,7 +326,7 @@ impl Instr {
             0xE5 => n(PUSH(HL), 4, 1),
             0xE6 => n(AND(Src::D8(b1)), 2, 2),
             0xE7 => n(RST(0x20), 4, 1),
-            0xE8 => n(ADD16(SP, Src::I8(b1 as i8)), 4, 1),
+            0xE8 => n(ADD16(SP, Src::I8(b1 as i8)), 4, 2),
             0xE9 => n(JP(FlagCondition::ALWAYS, Src::Reg(HL)), 1, 1),
             0xEA => n(LD8(Src::A16(b21), Src::Reg(A)), 4, 3),
             0xEB => n(INVALID(b0), 1, 1),

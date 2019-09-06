@@ -1163,7 +1163,7 @@ mod tests {
         cpu.registers.set16(SP, 0xFFF8);
 
         assert_eq!(cpu.eval(&mut mb), 4);
-        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.pc(), 0x02);
         assert_eq!(cpu.registers.get16(SP), 0xFFFA);
         assert_eq!(cpu.registers.z_flag(), 0);
         assert_eq!(cpu.registers.n_flag(), 0);
@@ -1179,7 +1179,7 @@ mod tests {
         cpu.registers.set16(SP, 0xFFF8);
 
         assert_eq!(cpu.eval(&mut mb), 4);
-        assert_eq!(cpu.registers.pc(), 0x01);
+        assert_eq!(cpu.registers.pc(), 0x02);
         assert_eq!(cpu.registers.get16(SP), 0xFFF6);
         assert_eq!(cpu.registers.z_flag(), 0);
         assert_eq!(cpu.registers.n_flag(), 0);
