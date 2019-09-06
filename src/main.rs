@@ -1,8 +1,9 @@
-use std::fs;
 use structopt::StructOpt;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use crate::cartridge::Cartridge;
 
+mod cartridge;
 mod clocks;
 mod memory;
 mod cpu;
@@ -16,13 +17,16 @@ mod renderer;
 struct Cli {
     #[structopt(short, long)]
     debug: bool,
+    #[structopt(short, long)]
+    skip_boot_rom: bool,
+
     #[structopt(parse(from_os_str))]
     cartridge_path: std::path::PathBuf,
 }
 
 fn main() {
     let args = Cli::from_args();
-    let cartridge = fs::read(args.cartridge_path).unwrap();
+    let cartridge = Cartridge::new(args.cartridge_path);
 
     if args.debug {
         println!("Debug enabled!");
@@ -43,7 +47,9 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let renderer = renderer::Renderer::new(&mut canvas, &texture_creator);
-    let mut gameboy = gameboy::Gameboy::boot(&cartridge, renderer, args.debug);
+    let mut gameboy = gameboy::Gameboy::new(renderer, args.debug);
+
+    gameboy.boot(cartridge, args.skip_boot_rom);
 
     'running: loop {
         gameboy.tick();

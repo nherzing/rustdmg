@@ -18,6 +18,10 @@ impl<'a> MemoryBus<'a> {
         self.devices.get(self.memory_map.get_id(addr))
     }
 
+    pub fn get_sym(&self, addr: u16) -> Option<&String> {
+        self.memory_map.get_sym(addr)
+    }
+
     pub fn set8(&mut self, addr: u16, byte: u8) {
         self.get_device(addr).set8(addr, byte);
     }

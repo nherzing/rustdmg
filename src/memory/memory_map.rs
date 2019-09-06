@@ -1,6 +1,7 @@
 use crate::ram_device::{RamDevice};
 use crate::rom_device::{RomDevice};
 use crate::lcd::{LcdController};
+use crate::cartridge::Symbols;
 
 const MEMORY_SIZE: usize = 0x10000;
 
@@ -22,15 +23,29 @@ pub enum MemoryMappedDeviceId {
 use MemoryMappedDeviceId::*;
 
 pub struct MemoryMap {
-    memory_map: [Option<MemoryMappedDeviceId>; MEMORY_SIZE]
+    memory_map: [Option<MemoryMappedDeviceId>; MEMORY_SIZE],
+    symbols: Option<Symbols>
 }
 
 impl MemoryMap {
     pub fn new() -> MemoryMap {
         MemoryMap {
-            memory_map: [None; MEMORY_SIZE]
+            memory_map: [None; MEMORY_SIZE],
+            symbols: None
         }
     }
+
+    pub fn set_symbols(&mut self, symbols: Option<Symbols>) {
+        self.symbols = symbols;
+    }
+
+    pub fn get_sym(&self, addr: u16) -> Option<&String> {
+        match &self.symbols {
+            None => None,
+            Some(c) => c.get(addr as usize)
+        }
+    }
+
 
     pub fn register(&mut self, id: MemoryMappedDeviceId, mapped_areas: &[MappedArea]) {
         for area in mapped_areas {

@@ -1,7 +1,8 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
+use crate::cartridge::{Cartridge};
 
 pub struct RomDevice {
-    memory: Vec<u8>
+    memory: Vec<u8>,
 }
 
 impl RomDevice {
@@ -15,6 +16,12 @@ impl RomDevice {
 
     pub fn load(&mut self, data: &[u8]) {
         for (i, &v) in data.iter().enumerate() {
+            self.memory[i] = v
+        }
+    }
+
+    pub fn load_cartridge(&mut self, cartridge: &Cartridge) {
+        for (i, &v) in cartridge.data().iter().enumerate() {
             self.memory[i] = v
         }
     }

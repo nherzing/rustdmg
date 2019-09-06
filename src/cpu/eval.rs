@@ -14,9 +14,13 @@ impl Cpu {
         let mut inc_pc = true;
         let mut cycles = instr.cycles;
 
-        // if self.debug {
-        //     println!("0x{:X?}: {:X?}", self.registers.pc(), instr.opcode);
-        // }
+        if self.debug {
+            let sym = memory_bus.get_sym(self.registers.pc());
+            match sym {
+                Some(s) => println!("{} (0x{:X?}): {:X?}", s, self.registers.pc(), instr.opcode),
+                None => println!("0x{:X?}: {:X?}", self.registers.pc(), instr.opcode)
+            }
+        }
 
         match instr.opcode {
             NOP => {}
