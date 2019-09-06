@@ -175,7 +175,9 @@ impl Cpu {
                 self.registers.set16(reg, safe_inc);
             }
             DEC16(reg) => {
-                self.registers.set16(reg, self.registers.get16(reg) - 1);
+                let v = self.registers.get16(reg);
+                let r = if v == 0 { 0xFFFF } else { v - 1 };
+                self.registers.set16(reg, r);
             }
             RLCA => {
                 let a = self.registers.get8(A);
