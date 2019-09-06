@@ -53,7 +53,7 @@ impl Registers {
 
     pub fn get16(&self, r: Register) -> u16 {
         match r {
-            AF => self.combine(self.a, self.f),
+            AF => self.combine(self.a, self.f & 0xF0),
             BC => self.combine(self.b, self.c),
             DE => self.combine(self.d, self.e),
             HL => self.combine(self.h, self.l),
