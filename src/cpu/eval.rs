@@ -453,7 +453,7 @@ impl Cpu {
         let v = self.get_u16(src);
         match dst {
             Src::Reg(r) => self.registers.set16(r, v),
-            Src::A16(a16) => memory_bus.set16(a16, v),
+            Src::A16(a16) => memory_bus.set16(a16, ((v & 0xFF) << 8) | ((v >> 8) & 0xFF)),
             _ => panic!("Invalid src for 16 bit value {:?}", dst)
         }
     }
@@ -680,15 +680,15 @@ mod tests {
 
     #[test]
     fn test_08() {
-        let (mut mm, mut mmdm) = new_from_slice(&[0x08, 0xDE, 0xAD]);
+        let (mut mm, mut mmdm) = new_from_slice(&[0x08, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
         let mut cpu = Cpu::new();
         cpu.registers.set16(SP, 0x1234);
 
         assert_eq!(cpu.eval(&mut mb), 5);
         assert_eq!(cpu.registers.pc(), 0x03);
-        assert_eq!(mb.get8(0xDEAD), 0x12);
-        assert_eq!(mb.get8(0xDEAE), 0x34);
+        assert_eq!(mb.get8(0xDEAD), 0x34);
+        assert_eq!(mb.get8(0xDEAE), 0x12);
     }
 
     #[test]
