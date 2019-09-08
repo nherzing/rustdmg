@@ -39,11 +39,11 @@ impl Cpu {
                 let sp = self.registers.get16(SP) as i32;
                 let b = v as i32;
                 let r32 = sp + b;
-                let r16 = r32 as u16;
-                let r12 = (sp & 0xFFF) + (b & 0xFFF);
 
-                self.registers.set16(HL, r16);
-                self.registers.set_flags(false, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
+                self.registers.set16(HL, r32 as u16);
+                let h = ((sp & 0xF) + (b & 0xF)) & 0x10 == 0x10;
+                let cy = ((sp & 0xFF) + (b & 0xFF)) & 0x100 == 0x100;
+                self.registers.set_flags(false, false, h, cy);
             }
             LD16(dst, src) => {
                 self.ld16(dst, src, memory_bus);
@@ -153,12 +153,11 @@ impl Cpu {
                 let a = self.registers.get16(reg) as i32;
                 let b = v as i32;
                 let r32 = a + b;
-                let r16 = (r32 & 0xFFFF) as u16;
-                let r12 = (a & 0xFFF) + (b & 0xFFF);
 
-                self.registers.set16(reg, r16);
-                // not sure about this carry
-                self.registers.set_flags(false, false, (r12 >> 12) == 1, (r32 >> 16) == 1);
+                self.registers.set16(reg, r32 as u16);
+                let h = ((a & 0xF) + (b & 0xF)) & 0x10 == 0x10;
+                let cy = ((a & 0xFF) + (b & 0xFF)) & 0x100 == 0x100;
+                self.registers.set_flags(false, false, h, cy);
             }
             ADD16(reg, src) => {
                 let a = self.registers.get16(reg) as u32;
@@ -579,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_fa() {
-        let (mut mm, mut mmdm) = new_from_slice(&[0xFA, 0xDE, 0xAD]);
+        let (mut mm, mut mmdm) = new_from_slice(&[0xFA, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
         let mut cpu = Cpu::new();
         mb.set8(0xDEAD, 42);
@@ -1184,7 +1183,7 @@ mod tests {
         assert_eq!(cpu.registers.z_flag(), 0);
         assert_eq!(cpu.registers.n_flag(), 0);
         assert_eq!(cpu.registers.h_flag(), 1);
-        assert_eq!(cpu.registers.cy_flag(), 0);
+        assert_eq!(cpu.registers.cy_flag(), 1);
     }
 
     #[test]

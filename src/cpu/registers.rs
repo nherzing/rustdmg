@@ -159,7 +159,7 @@ mod tests {
         let mut rs = Registers::new();
         rs.set16(AF, 0xDEAD);
         rs.set16(SP, 0xBEEF);
-        assert_eq!(rs.get16(AF), 0xDEAD);
+        assert_eq!(rs.get16(AF), 0xDEA0);
         assert_eq!(rs.get8(A), 0xDE);
         assert_eq!(rs.get8(F), 0xAD);
         assert_eq!(rs.get16(SP), 0xBEEF);
