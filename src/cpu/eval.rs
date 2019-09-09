@@ -327,38 +327,27 @@ impl Cpu {
                 inc_pc = false;
             }
             DAA => {
-                // i dunno about this
                 let a = self.registers.get8(A);
-                let ln = a & 0xF;
-                let hn = (a >> 4) & 0xF;
-                let mut to_add = 0;
                 let h_flag = self.registers.h_flag() == 1;
                 let cy_flag = self.registers.cy_flag() == 1;
+                let n_flag = self.registers.n_flag() == 1;
+
+                let mut to_add = 0u16;
                 let mut set_cy = false;
-                if self.registers.n_flag() == 1 {
-                    if !cy_flag {
-                        if hn <= 8 && ln >= 6 && h_flag {
-                            to_add = 0xFA;
-                        }
-                    } else if cy_flag {
-                        if hn >= 7 && !h_flag && ln <= 9 {
-                            to_add = 0xA0;
-                            set_cy = true;
-                        } else if hn >= 6 && h_flag && ln >= 6 {
-                            to_add = 0x9A;
-                            set_cy = true;
-                        }
-                    }
-                } else {
-                    if ln >= 10 || h_flag {
-                        to_add += 6;
-                    }
-                    if hn >= 10 || cy_flag {
-                        to_add += 0x60;
-                        set_cy = true;
-                    }
+                if h_flag || (!n_flag && (a & 0xF) > 9) {
+                    to_add += 0x06;
                 }
-                let r = ((a as u16) + to_add) as u8;
+                if cy_flag || (!n_flag && a > 0x99) {
+                    to_add += 0x60;
+                    set_cy = true;
+                }
+
+                let r = if n_flag {
+                    ((a as i16) - (to_add as i16)) as u8
+                } else {
+                    ((a as u16) + to_add) as u8
+                };
+
                 self.registers.set8(A, r);
                 self.registers.set_flags(r == 0, self.registers.n_flag() == 1, false, set_cy);
             }
