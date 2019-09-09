@@ -74,7 +74,7 @@ impl<'a> Gameboy<'a> {
         let mut mb = MemoryBus::new(&mut self.memory_map, &mut self.device_manager);
 
         loop {
-            let clocks = self.cpu.step(&mut mb);;
+            let clocks = self.cpu.step(&mut mb);
 
             match mb.devices().timer().tick(clocks) {
                 None => {}

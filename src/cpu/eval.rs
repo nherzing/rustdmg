@@ -1624,7 +1624,7 @@ mod tests {
         cpu.registers.set_flags(true, false, false, false);
         cpu.registers.set16(PC, 4);
 
-        assert_eq!(cpu.eval(&mut mb), 4);
+        assert_eq!(cpu.eval(&mut mb), 3);
         assert_eq!(cpu.registers.pc(), 0x03);
     }
 
