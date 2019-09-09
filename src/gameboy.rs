@@ -41,7 +41,7 @@ impl<'a> Gameboy<'a> {
         if skip_boot_rom {
             self.cpu.skip_boot_rom();
         }
-        self.map_devices(cartridge);
+        self.map_devices(cartridge, skip_boot_rom);
 
         let lcd_controller = self.device_manager.lcd_controller();
         self.renderer.update_game(lcd_controller.frame_buffer());
@@ -49,14 +49,14 @@ impl<'a> Gameboy<'a> {
         self.renderer.refresh();
     }
 
-    fn map_devices(&mut self, cartridge: Cartridge, ) {
+    fn map_devices(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
         let boot_rom = include_bytes!("boot_rom.gb");
         self.memory_map.register(ROMBank0, &[MappedArea(0, 0x8000)]);
         self.memory_map.set_symbols(cartridge.symbols());
 
         let rom_bank = self.device_manager.rom_bank0();
         rom_bank.load_cartridge(&cartridge);
-        rom_bank.load(boot_rom);
+        if !skip_boot_rom { rom_bank.load(boot_rom); }
 
         self.memory_map.register(RAMBank0, &[MappedArea(0x8000, 0x8000)]);
         self.memory_map.register(LCD, &LcdController::mapped_areas());
