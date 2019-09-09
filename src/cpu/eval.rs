@@ -10,6 +10,25 @@ use Register::*;
 
 impl Cpu {
     pub fn eval(&mut self, memory_bus: &mut MemoryBus) -> u32 {
+        if self.halted || self.ime {
+            let interrupt_ctrl = memory_bus.devices().interrupt_controller();
+            match interrupt_ctrl.handle(!self.halted) {
+                None => {}
+                Some(addr) => {
+                    if !self.halted {
+                        self.push_pc(0, memory_bus);
+                        self.registers.set16(PC, addr);
+                    }
+                    self.halted = false;
+                    self.ime = false;
+                }
+            }
+        }
+
+        if self.halted {
+            return 1;
+        }
+
         let instr = self.disassemble(memory_bus);
         let mut inc_pc = true;
         let mut cycles = instr.cycles;
@@ -373,7 +392,7 @@ impl Cpu {
                 self.ime = true;
             }
             HALT => {
-                panic!("HALT not implemented");
+                self.halted = true;
             }
             STOP => {
                 panic!("STOP not implemented");

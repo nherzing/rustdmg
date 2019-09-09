@@ -225,14 +225,12 @@ impl MemoryMappedDevice for LcdController {
                 self.vram[(addr - VRAM_START) as usize] = byte;
             }
             BGP => {
-                println!("BGP {:b}", byte);
                 self.bgp = byte;
                 self.background_palette = Palette::new(byte);
             }
-            SCY => { self.scy = byte; println!("SCY: {}", byte); }
+            SCY => { self.scy = byte; }
             SCX => { self.scx = byte }
             LCDC => {
-                println!("LCDC {:b}", byte);
                 if b7!(self.lcdc) == 0 && b7!(byte) == 1 {
                     for p in self.frame_buffer.iter_mut() {
                         *p = Color::White;

@@ -1,5 +1,6 @@
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
+use crate::interrupt_controller::InterruptController;
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::cartridge::Symbols;
@@ -21,6 +22,7 @@ pub enum MemoryMappedDeviceId {
     ROMBank0,
     RAMBank0,
     Timer,
+    Interrupt,
     LCD
 }
 
@@ -71,6 +73,7 @@ impl MemoryMap {
 pub struct MemoryMappedDeviceManager {
     rom_bank0: Option<RomDevice>,
     ram_bank0: Option<RamDevice>,
+    interrupt_controller: Option<InterruptController>,
     timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
 }
@@ -80,6 +83,7 @@ impl MemoryMappedDeviceManager {
         MemoryMappedDeviceManager {
             rom_bank0: None,
             ram_bank0: None,
+            interrupt_controller: None,
             timer: None,
             lcd_controller: None
         }
@@ -104,6 +108,17 @@ impl MemoryMappedDeviceManager {
         match self.ram_bank0 {
             Some(ref mut v) => v,
             None => panic!("No registered RAMBank0")
+        }
+    }
+
+    pub fn set_interrupt_controller(&mut self, device: InterruptController) {
+        self.interrupt_controller = Some(device);
+    }
+
+    pub fn interrupt_controller(&mut self) -> &mut InterruptController {
+        match self.interrupt_controller {
+            Some(ref mut v) => v,
+            None => panic!("No registered InteruptController")
         }
     }
 
@@ -134,7 +149,8 @@ impl MemoryMappedDeviceManager {
             ROMBank0 => self.rom_bank0(),
             RAMBank0 => self.ram_bank0(),
             Timer => self.timer(),
-            LCD => self.lcd_controller()
+            LCD => self.lcd_controller(),
+            Interrupt => self.interrupt_controller()
         }
     }
 }

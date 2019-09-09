@@ -8,6 +8,7 @@ mod registers;
 pub struct Cpu {
     registers: Registers,
     ime: bool,
+    halted: bool,
     debug: bool
 }
 
@@ -16,6 +17,7 @@ impl Cpu {
         Cpu {
             registers: Registers::new(),
             ime: false,
+            halted: false,
             debug: false
         }
     }

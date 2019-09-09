@@ -1,5 +1,6 @@
-use crate::memory::memory_map::{MemoryMappedDevice};
-use crate::memory::memory_map::{MappedArea};
+use crate::memory::memory_map::MemoryMappedDevice;
+use crate::memory::memory_map::MappedArea;
+use crate::interrupt_controller::Interrupt;
 use crate::clocks::CLOCK_FREQ;
 
 const DIV_FREQ: u32 = 16384;
@@ -73,13 +74,14 @@ impl TimerController {
         ]
     }
 
-    pub fn tick(&mut self, clocks: u32) {
+    pub fn tick(&mut self, clocks: u32) -> Option<Interrupt> {
         self.div_ticker.tick(clocks);
         if self.tima_running {
             if self.tima_ticker.tick(clocks) {
-                println!("INTERRUPT");
+                return Some(Interrupt::Timer)
             }
         };
+        None
     }
 }
 
@@ -87,10 +89,10 @@ impl TimerController {
 impl MemoryMappedDevice for TimerController {
     fn get8(&self, addr: u16) -> u8 {
         match addr {
-            DIV => { self.div_ticker.value }
-            TIMA => { self.tima_ticker.value }
-            TMA => { self.tima_ticker.default_value }
-            TAC => { self.tac }
+            DIV => self.div_ticker.value,
+            TIMA => self.tima_ticker.value,
+            TMA => self.tima_ticker.default_value,
+            TAC => self.tac,
             _ => { panic!("Invalid get address 0x{:X} mapped to TimerController", addr) }
         }
     }
