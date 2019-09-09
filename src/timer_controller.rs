@@ -46,7 +46,6 @@ impl Timer {
     }
 
     fn set(&mut self, value: u8) {
-        self.clocks_left = self.clocks_per_tick;
         self.value = value;
     }
 }
@@ -150,9 +149,7 @@ mod tests {
         assert_eq!(t.get8(DIV), 5);
         t.set8(DIV, 42);
         assert_eq!(t.get8(DIV), 0);
-        t.tick(63);
-        assert_eq!(t.get8(DIV), 0);
-        t.tick(1);
+        t.tick(61);
         assert_eq!(t.get8(DIV), 1);
     }
 
