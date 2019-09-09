@@ -61,7 +61,7 @@ impl InterruptController {
     }
 
     pub fn request(&mut self, interrupt: Interrupt) {
-        self.if_reg = self.if_reg | interrupt.flag()
+        self.if_reg = self.if_reg | interrupt.flag();
     }
 }
 

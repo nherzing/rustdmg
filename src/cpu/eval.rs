@@ -728,7 +728,7 @@ mod tests {
         cpu.registers.set16(SP, 0xFFFC);
         mb.set16(0xFFFC, 0xDEAD);
 
-        assert_eq!(cpu.eval(&mut mb), 4);
+        assert_eq!(cpu.eval(&mut mb), 3);
         assert_eq!(cpu.registers.pc(), 0x01);
         assert_eq!(cpu.registers.get8(H), 0xAD);
         assert_eq!(cpu.registers.get8(L), 0xDE);
