@@ -6,38 +6,6 @@ use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
 
-// macro_rules! b0 {
-//     ($x:expr) => (($x >> 0) & 0x1);
-// }
-
-// macro_rules! b1 {
-//     ($x:expr) => (($x >> 1) & 0x1);
-// }
-
-// macro_rules! b2 {
-//     ($x:expr) => (($x >> 2) & 0x1);
-// }
-
-// macro_rules! b3 {
-//     ($x:expr) => (($x >> 3) & 0x1);
-// }
-
-// macro_rules! b4 {
-//     ($x:expr) => (($x >> 4) & 0x1);
-// }
-
-// macro_rules! b5 {
-//     ($x:expr) => (($x >> 5) & 0x1);
-// }
-
-// macro_rules! b6 {
-//     ($x:expr) => (($x >> 6) & 0x1);
-// }
-
-macro_rules! b7 {
-    ($x:expr) => (($x >> 7) & 0x1);
-}
-
 pub const VRAM_START: u16 = 0x8000;
 pub const VRAM_SIZE: usize = 0x2000;
 pub const VRAM_END: u16 = VRAM_START + VRAM_SIZE as u16 - 1;
@@ -288,9 +256,5 @@ impl MemoryMappedDevice for LcdController {
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
 
         }
-    }
-
-    fn get_slice(&self, _addr: u16, _size: usize) -> &[u8] {
-        panic!("Can't obtain slice from LCD Controller")
     }
 }

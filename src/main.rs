@@ -3,6 +3,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use crate::cartridge::Cartridge;
 
+mod bitops;
 mod cartridge;
 mod clocks;
 mod memory;
@@ -10,6 +11,7 @@ mod cpu;
 mod ram_device;
 mod rom_device;
 mod gameboy;
+mod timer_controller;
 mod lcd;
 mod renderer;
 

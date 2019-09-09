@@ -1,6 +1,7 @@
-use crate::ram_device::{RamDevice};
-use crate::rom_device::{RomDevice};
-use crate::lcd::{LcdController};
+use crate::ram_device::RamDevice;
+use crate::rom_device::RomDevice;
+use crate::timer_controller::TimerController;
+use crate::lcd::LcdController;
 use crate::cartridge::Symbols;
 
 const MEMORY_SIZE: usize = 0x10000;
@@ -10,13 +11,16 @@ pub struct MappedArea(pub u16, pub usize);
 pub trait MemoryMappedDevice {
     fn set8(&mut self, addr: u16, byte: u8);
     fn get8(&self, addr: u16) -> u8;
-    fn get_slice(&self, addr: u16, size: usize) -> &[u8];
+    fn get_slice(&self, _addr: u16, _size: usize) -> &[u8] {
+        panic!("Slice not implemented")
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum MemoryMappedDeviceId {
     ROMBank0,
     RAMBank0,
+    Timer,
     LCD
 }
 
@@ -67,6 +71,7 @@ impl MemoryMap {
 pub struct MemoryMappedDeviceManager {
     rom_bank0: Option<RomDevice>,
     ram_bank0: Option<RamDevice>,
+    timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
 }
 
@@ -75,6 +80,7 @@ impl MemoryMappedDeviceManager {
         MemoryMappedDeviceManager {
             rom_bank0: None,
             ram_bank0: None,
+            timer: None,
             lcd_controller: None
         }
     }
@@ -101,6 +107,17 @@ impl MemoryMappedDeviceManager {
         }
     }
 
+    pub fn set_timer(&mut self, device: TimerController) {
+        self.timer = Some(device);
+    }
+
+    pub fn timer(&mut self) -> &mut TimerController {
+        match self.timer {
+            Some(ref mut v) => v,
+            None => panic!("No registered Timer")
+        }
+    }
+
     pub fn set_lcd_controller(&mut self, device: LcdController) {
         self.lcd_controller = Some(device);
     }
@@ -116,6 +133,7 @@ impl MemoryMappedDeviceManager {
         match id {
             ROMBank0 => self.rom_bank0(),
             RAMBank0 => self.ram_bank0(),
+            Timer => self.timer(),
             LCD => self.lcd_controller()
         }
     }

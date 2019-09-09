@@ -3,6 +3,7 @@ use crate::memory::memory_bus::MemoryBus;
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
+use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::renderer::Renderer;
 use crate::clocks::NS_PER_SCREEN_REFRESH;
@@ -27,6 +28,7 @@ impl<'a> Gameboy<'a> {
         let mut device_manager = MemoryMappedDeviceManager::new();
         device_manager.set_rom_bank0(RomDevice::new(0x8000));
         device_manager.set_ram_bank0(RamDevice::new(0x8000, 0x8000));
+        device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
 
         Gameboy {
@@ -58,7 +60,8 @@ impl<'a> Gameboy<'a> {
         rom_bank.load_cartridge(&cartridge);
         if !skip_boot_rom { rom_bank.load(boot_rom); }
 
-        self.memory_map.register(RAMBank0, &[MappedArea(0x8000, 0x8000)]);
+        self.memory_map.register(RAMBank0, &[MappedArea(0xC000, 0x2000)]);
+        self.memory_map.register(Timer, &TimerController::mapped_areas());
         self.memory_map.register(LCD, &LcdController::mapped_areas());
     }
 
@@ -69,6 +72,8 @@ impl<'a> Gameboy<'a> {
 
         loop {
             let clocks = self.cpu.step(&mut mb);;
+
+            mb.devices().timer().tick(clocks);
 
             let lcd_controller = mb.devices().lcd_controller();
             lcd_controller.tick(clocks);
