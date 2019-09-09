@@ -11,21 +11,13 @@ pub enum Interrupt {
 impl Interrupt {
     fn addr(&self) -> u16 {
         match self {
-            Timer => 0x50
+            Interrupt::Timer => 0x50
         }
     }
 
-    fn requested(&self, if_reg: u8) -> bool {
-        (if_reg & self.flag()) == self.flag()
-    }
-
-    fn enabled(&self, ie_reg: u8) -> bool {
-        (ie_reg & self.flag()) == self.flag()
-    }
-
     fn flag(&self) -> u8 {
-        match self {
-            Timer => 1 << 2
+        1 << match self {
+            Interrupt::Timer => 2
         }
     }
 }
@@ -80,5 +72,37 @@ impl MemoryMappedDevice for InterruptController {
             IF => { self.if_reg = byte }
             _ => { panic!("Invalid set address 0x{:X} mapped to InterruptController", addr) }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_handle() {
+        let mut ic = InterruptController::new();
+
+        assert_eq!(ic.handle(false), None);
+
+        ic.set8(IE, 0xFF);
+        assert_eq!(ic.handle(false), None);
+
+        ic.set8(IF, 0xFF);
+        assert_eq!(ic.handle(false), Some(0x50));
+        assert_eq!(ic.get8(IF), 0xFF);
+
+        assert_eq!(ic.handle(true), Some(0x50));
+        assert_eq!(ic.get8(IF), 0xFB);
+    }
+
+    #[test]
+    fn test_request() {
+        let mut ic = InterruptController::new();
+
+        ic.request(Interrupt::Timer);
+        assert_eq!(ic.get8(IF), 0x04);
+        ic.request(Interrupt::Timer);
+        assert_eq!(ic.get8(IF), 0x04);
     }
 }
