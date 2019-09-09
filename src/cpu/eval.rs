@@ -356,7 +356,12 @@ impl Cpu {
                 self.registers.set_flags(self.registers.z_flag() == 1, true, true, self.registers.cy_flag() == 1);
             }
             CCF => {
-                self.registers.set_flags(self.registers.z_flag() == 1, self.registers.n_flag() == 1, self.registers.h_flag() == 1, (!self.registers.cy_flag() & 0x1) == 1);
+                self.registers.set_flags(
+                    self.registers.z_flag() == 1,
+                    false,
+                    false,
+                    (self.registers.cy_flag() ^ 1) == 1
+                );
             }
             SCF => {
                 self.registers.set_flags(self.registers.z_flag() == 1, false, false, true);
@@ -1706,8 +1711,8 @@ mod tests {
 
         assert_eq!(cpu.eval(&mut mb), 1);
         assert_eq!(cpu.registers.z_flag(), 1);
-        assert_eq!(cpu.registers.h_flag(), 1);
-        assert_eq!(cpu.registers.n_flag(), 1);
+        assert_eq!(cpu.registers.h_flag(), 0);
+        assert_eq!(cpu.registers.n_flag(), 0);
         assert_eq!(cpu.registers.cy_flag(), 1);
     }
 
