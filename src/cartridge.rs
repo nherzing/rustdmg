@@ -1,7 +1,8 @@
 use usize;
+use std::str;
+use std::fmt;
 use std::fs;
 use std::collections::HashMap;
-
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct Loc(usize, usize);
@@ -39,6 +40,15 @@ impl Symbols {
     }
 }
 
+#[derive(Debug)]
+enum MBCType {
+    RomOnly = 0,
+    MBC1 = 1,
+    MBC1_RAM = 2,
+    MBC1_RAM_BATTERY = 3,
+    MBC2 = 5
+}
+
 pub struct Cartridge {
     path: std::path::PathBuf,
     data: Vec<u8>,
@@ -55,6 +65,29 @@ impl Cartridge {
         &self.data
     }
 
+    fn title(&self) -> &str {
+        str::from_utf8(&self.data[0x134..=0x143]).unwrap_or("UNKNOWN")
+    }
+
+    fn mbc_type(&self) -> MBCType {
+        match self.data[0x147] {
+            0 => MBCType::RomOnly,
+            1 => MBCType::MBC1,
+            2 => MBCType::MBC1_RAM,
+            3 => MBCType::MBC1_RAM_BATTERY,
+            5 => MBCType::MBC2,
+            x => panic!("Unknown MBCType {}", x)
+        }
+    }
+
+    fn rom_size(&self) -> u8 {
+        self.data[0x148]
+    }
+
+    fn ram_size(&self) -> u8 {
+        self.data[0x149]
+    }
+
     pub fn symbols(&self) -> Option<Symbols> {
         let mut symbol_path = self.path.clone();
         symbol_path.set_extension("sym");
@@ -63,5 +96,14 @@ impl Cartridge {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Debug for Cartridge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{ title: {}, type: {:?}, rom_size: {}, ram_size: {} }}",
+               self.title(), self.mbc_type(),
+               self.rom_size(), self.ram_size()
+        )
     }
 }
