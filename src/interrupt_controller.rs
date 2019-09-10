@@ -4,19 +4,23 @@ use crate::memory::memory_map::MappedArea;
 const IE: u16 = 0xFFFF;
 const IF: u16 = 0xFF0F;
 
+#[derive(Debug)]
 pub enum Interrupt {
+    VBlank,
     Timer
 }
 
 impl Interrupt {
     fn addr(&self) -> u16 {
         match self {
+            Interrupt::VBlank => 0x40,
             Interrupt::Timer => 0x50
         }
     }
 
     fn flag(&self) -> u8 {
         1 << match self {
+            Interrupt::VBlank => 0,
             Interrupt::Timer => 2
         }
     }
@@ -43,13 +47,24 @@ impl InterruptController {
     }
 
     pub fn handle(&mut self, clear: bool) -> Option<u16> {
-        let flag = Interrupt::Timer.flag();
-        if self.ie_reg & flag == flag && self.if_reg & flag == flag {
-            if clear { self.if_reg = self.if_reg ^ flag; }
-            Some(Interrupt::Timer.addr())
+        if self.enabled_and_requested(Interrupt::VBlank) {
+            self.fire(Interrupt::VBlank, clear)
+        } else if self.enabled_and_requested(Interrupt::Timer) {
+            self.fire(Interrupt::Timer, clear)
         } else {
             None
         }
+    }
+
+    fn fire(&mut self, interrupt: Interrupt, clear: bool) -> Option<u16> {
+        let flag = interrupt.flag();
+        if clear { self.if_reg = self.if_reg ^ flag; }
+        Some(interrupt.addr())
+    }
+
+    fn enabled_and_requested(&self, interrupt: Interrupt) -> bool {
+        let flag = interrupt.flag();
+        self.ie_reg & flag == flag && self.if_reg & flag == flag
     }
 
     pub fn request(&mut self, interrupt: Interrupt) {

@@ -13,7 +13,6 @@ use crate::cpu::Cpu;
 
 use MemoryMappedDeviceId::*;
 
-
 pub struct Gameboy<'a> {
     cpu: Cpu,
     memory_map: MemoryMap,
@@ -42,6 +41,7 @@ impl<'a> Gameboy<'a> {
     }
 
     pub fn boot(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
+        println!("Booting: {:?}", cartridge);
         if skip_boot_rom {
             self.cpu.skip_boot_rom();
         }
@@ -83,8 +83,14 @@ impl<'a> Gameboy<'a> {
                 }
             }
 
+            match mb.devices().lcd_controller().tick(clocks) {
+                None => {}
+                Some(interrupt) => {
+                    mb.devices().interrupt_controller().request(interrupt)
+                }
+            }
+
             let lcd_controller = mb.devices().lcd_controller();
-            lcd_controller.tick(clocks);
 
             if lcd_controller.wants_refresh() {
                 lcd_controller.refresh();

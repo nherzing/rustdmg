@@ -16,9 +16,9 @@ macro_rules! b2 {
 //     ($x:expr) => (($x >> 3) & 0x1);
 // }
 
-// macro_rules! b4 {
-//     ($x:expr) => (($x >> 4) & 0x1);
-// }
+macro_rules! b4 {
+    ($x:expr) => (($x >> 4) & 0x1);
+}
 
 // macro_rules! b5 {
 //     ($x:expr) => (($x >> 5) & 0x1);

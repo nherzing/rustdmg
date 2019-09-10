@@ -28,8 +28,8 @@ impl RomDevice {
 }
 
 impl MemoryMappedDevice for RomDevice {
-    fn set8(&mut self, addr: u16, _byte: u8) {
-        panic!("Can't write to ROM device at 0x{:X}.", addr);
+    fn set8(&mut self, addr: u16, byte: u8) {
+        println!("Can't write to ROM device at 0x{:X} = 0x{:X}.", addr, byte);
     }
 
     fn get8(&self, addr: u16) -> u8 {

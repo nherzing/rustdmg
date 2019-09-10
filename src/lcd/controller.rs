@@ -5,6 +5,7 @@ use crate::clocks::{CLOCKS_PER_SCREEN_REFRESH};
 use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
+use crate::interrupt_controller::Interrupt;
 
 pub const VRAM_START: u16 = 0x8000;
 pub const VRAM_SIZE: usize = 0x2000;
@@ -22,15 +23,11 @@ const OBP1: u16 = 0xFF49;
 const WY: u16 = 0xFF4A;
 const WX: u16 = 0xFF4B;
 
-const TILE_DATA_START: usize = 0x8000;
-const TILE_DATA_OFFSET: usize = TILE_DATA_START - (VRAM_START as usize);
-const TILE_DATA_SIZE: usize = 0x1800;
-
 const TILE_MAP_START: usize = 0x9800;
 const TILE_MAP_OFFSET: usize = TILE_MAP_START - (VRAM_START as usize);
 const TILE_MAP_SIZE: usize = 0x400;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum Period {
     OAMSearch,
     PixelTransfer,
@@ -68,6 +65,13 @@ impl Period {
             }
         }
     }
+
+    fn interrupt(&self) -> Option<Interrupt> {
+        match self {
+            VBlank => Some(Interrupt::VBlank),
+            _ => None
+        }
+    }
 }
 
 use Period::*;
@@ -87,7 +91,7 @@ impl State {
         }
     }
 
-    fn tick(&mut self, clocks: u32) -> u32{
+    fn tick(&mut self, clocks: u32) -> u32 {
         if self.clocks_left < clocks {
             let rem_clocks = clocks - self.clocks_left;
             let (period, ly) = self.period.next(self.ly);
@@ -162,38 +166,55 @@ impl LcdController {
         &self.bg_tile_frame_buffer
     }
 
-    pub fn tick(&mut self, clocks: u32) {
+    pub fn tick(&mut self, clocks: u32) -> Option<Interrupt> {
         self.clocks_since_render += clocks;
-        if b7!(self.lcdc) == 0 { return }
+        if b7!(self.lcdc) == 0 { return None }
 
+        let orig_period = self.state.period;
         let mut clocks_left = clocks;
         while clocks_left > 0 {
-            clocks_left = self.state.tick(clocks);
+            clocks_left = self.state.tick(clocks_left);
             self.ly = self.state.ly;
         }
         if self.wants_refresh() {
             self.fill_framebuffer();
             self.fill_tile_framebuffer();
         }
+        if orig_period != self.state.period {
+            self.state.period.interrupt()
+        } else {
+            None
+        }
+    }
+
+    fn bg_tile_set(&self) -> TileSet {
+        if b4!(self.lcdc) == 0 {
+            let bg_tile_data = &self.vram[0x800..0x1800];
+            TileSet::new(bg_tile_data, true)
+        } else {
+            let bg_tile_data = &self.vram[0x0..0x1000];
+            TileSet::new(bg_tile_data, false)
+        }
     }
 
     fn fill_framebuffer(&mut self) {
-        let bg_tile_data = &self.vram[TILE_DATA_OFFSET..TILE_DATA_OFFSET+TILE_DATA_SIZE];
-        let bg_tile_set = TileSet::new(bg_tile_data);
+        let mut frame_buffer = [Color::Off; GAME_WIDTH * GAME_HEIGHT];
+        let bg_tile_set = self.bg_tile_set();
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
         for y in 0..GAME_HEIGHT {
             let shifted_y = (y + (self.scy as usize)) % 256;
             for (idx, p) in bg_map.row_iter(shifted_y).enumerate() {
                 let color = self.background_palette.color(p);
-                self.frame_buffer[y * GAME_WIDTH + idx] = color;
+                frame_buffer[y * GAME_WIDTH + idx] = color;
             }
         }
+        self.frame_buffer = frame_buffer;
     }
 
     fn fill_tile_framebuffer(&mut self) {
-        let bg_tile_data = &self.vram[TILE_DATA_OFFSET..TILE_DATA_OFFSET+TILE_DATA_SIZE];
-        let bg_tile_set = TileSet::new(bg_tile_data);
+        let mut bg_tile_frame_buffer =  [Color::Off; 128 * 128];
+        let bg_tile_set = self.bg_tile_set();
 
         for i in 0usize..256 {
             let tile = bg_tile_set.tile(i as u8);
@@ -203,10 +224,12 @@ impl LcdController {
                 let row_start = origin + 128 * j;
                 for (k, p) in row.iter().enumerate() {
                     let color = self.background_palette.color(*p);
-                    self.bg_tile_frame_buffer[row_start + k] = color;
+                    bg_tile_frame_buffer[row_start + k] = color;
                 }
             }
         }
+
+        self.bg_tile_frame_buffer = bg_tile_frame_buffer;
     }
 
     pub fn wants_refresh(&self) -> bool {
@@ -224,19 +247,38 @@ impl MemoryMappedDevice for LcdController {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize] = byte;
             }
-            BGP => {
-                self.bgp = byte;
-                self.background_palette = Palette::new(byte);
-            }
-            SCY => { self.scy = byte; }
-            SCX => { self.scx = byte }
             LCDC => {
                 if b7!(self.lcdc) == 0 && b7!(byte) == 1 {
                     for p in self.frame_buffer.iter_mut() {
                         *p = Color::White;
                     }
                 }
+                if b7!(self.lcdc) == 1 && b7!(byte) == 0 {
+                    for p in self.frame_buffer.iter_mut() {
+                        *p = Color::Off;
+                    }
+                }
+                println!("LCDC: 0x{:b}", byte);
                 self.lcdc = byte;
+            }
+            STAT => { println!("STAT: {:?}", byte); }
+            BGP => {
+                self.bgp = byte;
+                self.background_palette = Palette::new(byte);
+            }
+            OBP0 => { }
+            OBP1 => { }
+            SCY => {
+                println!("SCY: {}", byte);
+                self.scy = byte;
+            }
+            SCX => {
+                println!("SCX: {}", byte);
+            }
+            WY => { }
+            WX => { }
+            DMA => {
+                println!("DMA");
             }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
 
@@ -249,8 +291,12 @@ impl MemoryMappedDevice for LcdController {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize]
             }
-            LY => { self.ly }
-            SCY => { self.scy }
+            LCDC => 0, //self.lcdc,
+            LY => {
+                println!("READ LY: {}", self.ly);
+                self.ly
+            }
+            SCY => self.scy,
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
 
         }
