@@ -4,6 +4,7 @@ use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
 use crate::interrupt_controller::InterruptController;
+use crate::joypad_controller::JoypadController;
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::renderer::Renderer;
@@ -31,6 +32,7 @@ impl<'a> Gameboy<'a> {
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
+        device_manager.set_joypad_controller(JoypadController::new());
 
         Gameboy {
             cpu,
@@ -66,6 +68,7 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(Interrupt, &InterruptController::mapped_areas());
         self.memory_map.register(Timer, &TimerController::mapped_areas());
         self.memory_map.register(LCD, &LcdController::mapped_areas());
+        self.memory_map.register(Joypad, &JoypadController::mapped_areas());
     }
 
     pub fn tick(&mut self) {

@@ -41,8 +41,8 @@ impl InterruptController {
 
     pub fn mapped_areas() -> [MappedArea; 2] {
         [
-            MappedArea(0xFFFF, 1),
-            MappedArea(0xFF0F, 1)
+            MappedArea(IE, 1),
+            MappedArea(IF, 1)
         ]
     }
 

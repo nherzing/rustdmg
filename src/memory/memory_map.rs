@@ -1,5 +1,6 @@
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
+use crate::joypad_controller::JoypadController;
 use crate::interrupt_controller::InterruptController;
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
@@ -23,6 +24,7 @@ pub enum MemoryMappedDeviceId {
     RAMBank0,
     Timer,
     Interrupt,
+    Joypad,
     LCD
 }
 
@@ -74,6 +76,7 @@ pub struct MemoryMappedDeviceManager {
     rom_bank0: Option<RomDevice>,
     ram_bank0: Option<RamDevice>,
     interrupt_controller: Option<InterruptController>,
+    joypad_controller: Option<JoypadController>,
     timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
 }
@@ -84,6 +87,7 @@ impl MemoryMappedDeviceManager {
             rom_bank0: None,
             ram_bank0: None,
             interrupt_controller: None,
+            joypad_controller: None,
             timer: None,
             lcd_controller: None
         }
@@ -122,6 +126,17 @@ impl MemoryMappedDeviceManager {
         }
     }
 
+    pub fn set_joypad_controller(&mut self, device: JoypadController) {
+        self.joypad_controller = Some(device);
+    }
+
+    pub fn joypad_controller(&mut self) -> &mut JoypadController {
+        match self.joypad_controller {
+            Some(ref mut v) => v,
+            None => panic!("No registered JoypadController")
+        }
+    }
+
     pub fn set_timer(&mut self, device: TimerController) {
         self.timer = Some(device);
     }
@@ -150,7 +165,8 @@ impl MemoryMappedDeviceManager {
             RAMBank0 => self.ram_bank0(),
             Timer => self.timer(),
             LCD => self.lcd_controller(),
-            Interrupt => self.interrupt_controller()
+            Interrupt => self.interrupt_controller(),
+            Joypad => self.joypad_controller()
         }
     }
 }

@@ -13,6 +13,7 @@ mod rom_device;
 mod gameboy;
 mod interrupt_controller;
 mod timer_controller;
+mod joypad_controller;
 mod lcd;
 mod renderer;
 
