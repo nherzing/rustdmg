@@ -1,4 +1,3 @@
-use std::iter;
 use super::tiles::TileSet;
 use crate::renderer::{GAME_WIDTH};
 

@@ -162,11 +162,12 @@ impl LcdController {
         &self.frame_buffer
     }
 
-    pub fn bg_tile_frame_buffer(&self) -> &[Color; 128 * 128] {
+    pub fn bg_tile_frame_buffer(&mut self) -> &[Color; 128 * 128] {
+        self.fill_tile_framebuffer();
         &self.bg_tile_frame_buffer
     }
 
-    pub fn tick(&mut self, clocks: u32) -> Option<Interrupt> {
+    pub fn tick(&mut self, clocks: u32, frame_buffer: &mut [Color]) -> Option<Interrupt> {
         self.clocks_since_render += clocks;
         if b7!(self.lcdc) == 0 { return None }
 
@@ -176,11 +177,10 @@ impl LcdController {
             clocks_left = self.state.tick(clocks_left);
             self.ly = self.state.ly;
         }
-        if self.wants_refresh() {
-            self.fill_framebuffer();
-            self.fill_tile_framebuffer();
-        }
         if orig_period != self.state.period {
+            if self.state.period == VBlank {
+                self.fill_framebuffer(frame_buffer);
+            }
             self.state.period.interrupt()
         } else {
             None
@@ -197,8 +197,7 @@ impl LcdController {
         }
     }
 
-    fn fill_framebuffer(&mut self) {
-        let mut frame_buffer = [Color::Off; GAME_WIDTH * GAME_HEIGHT];
+    fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
         let bg_tile_set = self.bg_tile_set();
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
@@ -209,7 +208,6 @@ impl LcdController {
                 frame_buffer[y * GAME_WIDTH + idx] = color;
             }
         }
-        self.frame_buffer = frame_buffer;
     }
 
     fn fill_tile_framebuffer(&mut self) {

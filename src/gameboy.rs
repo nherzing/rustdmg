@@ -3,12 +3,12 @@ use crate::memory::memory_bus::MemoryBus;
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
-use crate::interrupt_controller::InterruptController;
+use crate::interrupt_controller::{Interrupt, InterruptController};
 use crate::joypad_controller::JoypadController;
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
-use crate::renderer::Renderer;
-use crate::clocks::NS_PER_SCREEN_REFRESH;
+use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
+use crate::clocks::{NS_PER_SCREEN_REFRESH};
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 
@@ -18,7 +18,8 @@ pub struct Gameboy<'a> {
     cpu: Cpu,
     memory_map: MemoryMap,
     device_manager: MemoryMappedDeviceManager,
-    renderer: Renderer<'a>
+    renderer: Renderer<'a>,
+    frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT]
 }
 
 impl<'a> Gameboy<'a> {
@@ -38,7 +39,8 @@ impl<'a> Gameboy<'a> {
             cpu,
             memory_map: MemoryMap::new(),
             device_manager,
-            renderer
+            renderer,
+            frame_buffer: [Color::Off; GAME_WIDTH * GAME_HEIGHT],
         }
     }
 
@@ -86,29 +88,30 @@ impl<'a> Gameboy<'a> {
                 }
             }
 
-            match mb.devices().lcd_controller().tick(clocks) {
+            let lcd_interrupt = mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer);
+
+            match lcd_interrupt {
                 None => {}
                 Some(interrupt) => {
                     mb.devices().interrupt_controller().request(interrupt)
                 }
             }
 
-            let lcd_controller = mb.devices().lcd_controller();
+            match lcd_interrupt {
+                Some(Interrupt::VBlank) => {
+                    self.renderer.update_game(&self.frame_buffer);
+                    self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
 
-            if lcd_controller.wants_refresh() {
-                lcd_controller.refresh();
-                self.renderer.update_game(lcd_controller.frame_buffer());
-                self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
-
-                self.renderer.refresh();
-
-                let elapsed = now.elapsed();
-                let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
-                match to_wait {
-                    Some(d) => { thread::sleep(d) }
-                    None => { println!("TOO SLOW: {:?}", elapsed) }
+                    self.renderer.refresh();
+                    let elapsed = now.elapsed();
+                    let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
+                    match to_wait {
+                        Some(d) => { thread::sleep(d) }
+                        None => { println!("TOO SLOW: {:?}", elapsed) }
+                    }
+                    return
                 }
-                return
+                _ => {}
             }
         }
     }

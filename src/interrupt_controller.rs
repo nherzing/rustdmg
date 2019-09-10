@@ -4,7 +4,7 @@ use crate::memory::memory_map::MappedArea;
 const IE: u16 = 0xFFFF;
 const IF: u16 = 0xFF0F;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Interrupt {
     VBlank,
     Timer
