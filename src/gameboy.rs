@@ -45,7 +45,7 @@ impl<'a> Gameboy<'a> {
     }
 
     pub fn boot(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
-        println!("Booting: {:?}", cartridge);
+        debug!("Booting: {:?}", cartridge);
         if skip_boot_rom {
             self.cpu.skip_boot_rom();
         }
@@ -108,7 +108,7 @@ impl<'a> Gameboy<'a> {
                     let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
                     match to_wait {
                         Some(d) => { thread::sleep(d) }
-                        None => { println!("TOO SLOW: {:?}", elapsed) }
+                        None => { debug!("TOO SLOW: {:?}", elapsed) }
                     }
                     return
                 }

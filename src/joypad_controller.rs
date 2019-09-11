@@ -91,7 +91,9 @@ impl MemoryMappedDevice for JoypadController {
 
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
-            P1 => { self.p1 = byte & 0x30; }
+            P1 => {
+                self.p1 = byte & 0x30;
+            }
             _ => { panic!("Invalid set address 0x{:X} mapped to JoypadController", addr) }
         }
     }

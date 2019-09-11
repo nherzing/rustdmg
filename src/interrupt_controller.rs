@@ -57,6 +57,7 @@ impl InterruptController {
     }
 
     fn fire(&mut self, interrupt: Interrupt, clear: bool) -> Option<u16> {
+        debug!("FIRE: {:?}", interrupt);
         let flag = interrupt.flag();
         if clear { self.if_reg = self.if_reg ^ flag; }
         Some(interrupt.addr())
@@ -83,7 +84,10 @@ impl MemoryMappedDevice for InterruptController {
 
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
-            IE => { self.ie_reg = byte }
+            IE => {
+                debug!("IE: {:08b}", byte);
+                self.ie_reg = byte;
+            }
             IF => { self.if_reg = byte }
             _ => { panic!("Invalid set address 0x{:X} mapped to InterruptController", addr) }
         }

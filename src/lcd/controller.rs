@@ -264,10 +264,10 @@ impl MemoryMappedDevice for LcdController {
             }
             LCDC => {
                 self.lcdc = byte;
-                println!("Set LCDC: {:08b}", byte);
+               debug!("Set LCDC: {:08b}", byte);
             }
             STAT => {
-                println!("Set STAT: {:08b}", byte);
+               debug!("Set STAT: {:08b}", byte);
                 self.stat = (self.stat & STAT_MODE_MASK) | (byte & STAT_RW_MASK);
             }
             BGP => {
@@ -282,7 +282,9 @@ impl MemoryMappedDevice for LcdController {
             SCX => { }
             WY => { }
             WX => { }
-            DMA => { }
+            DMA => {
+               debug!("Set DMA: {:08b}", byte);
+            }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
 
         }
@@ -295,6 +297,10 @@ impl MemoryMappedDevice for LcdController {
                 self.vram[(addr - VRAM_START) as usize]
             }
             LCDC => self.lcdc,
+            STAT => {
+               debug!("Read STAT: {:08b}", self.stat);
+                self.stat
+            }
             LY => {
                 self.ly
             }

@@ -5,6 +5,17 @@ use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
 use crate::joypad_controller::JoypadInput;
 use crate::cartridge::Cartridge;
 
+#[cfg(feature = "debug")]
+macro_rules! debug {
+    ($( $args:expr ),*) => { println!( $( $args ),* ); }
+}
+
+#[cfg(not(feature = "debug"))]
+macro_rules! debug {
+    ($( $args:expr ),*) => {}
+}
+
+
 mod bitops;
 mod cartridge;
 mod clocks;
@@ -60,7 +71,7 @@ fn main() {
     let cartridge = Cartridge::new(args.cartridge_path);
 
     if args.debug {
-        println!("Debug enabled!");
+        debug!("Debug enabled!");
     }
 
     let sdl_context = sdl2::init().unwrap();

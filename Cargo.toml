@@ -6,6 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+debug = []
+
 [dependencies]
 structopt = { version = "0.2", default-features = false }
 sdl2 = "0.32"
