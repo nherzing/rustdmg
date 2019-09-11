@@ -15,10 +15,8 @@ impl Cpu {
             match interrupt_ctrl.handle(!self.halted) {
                 None => {}
                 Some(addr) => {
-                    if !self.halted {
-                        self.push_pc(0, memory_bus);
-                        self.registers.set16(PC, addr);
-                    }
+                    self.push_pc(0, memory_bus);
+                    self.registers.set16(PC, addr);
                     self.halted = false;
                     self.ime = false;
                 }
