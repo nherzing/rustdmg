@@ -4,7 +4,7 @@ use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager
 use crate::ram_device::RamDevice;
 use crate::rom_device::RomDevice;
 use crate::interrupt_controller::{Interrupt, InterruptController};
-use crate::joypad_controller::JoypadController;
+use crate::joypad_controller::{JoypadController, JoypadInput};
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
@@ -73,11 +73,12 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(Joypad, &JoypadController::mapped_areas());
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, pressed_inputs: &[JoypadInput]) {
         let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH as u64);
         let now = time::Instant::now();
         let mut mb = MemoryBus::new(&mut self.memory_map, &mut self.device_manager);
 
+        mb.devices().joypad_controller().set_pressed(pressed_inputs);
         loop {
             let clocks = self.cpu.step(&mut mb);
 

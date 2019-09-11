@@ -1,6 +1,8 @@
+use std::iter::{ Iterator };
 use structopt::StructOpt;
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
+use crate::joypad_controller::JoypadInput;
 use crate::cartridge::Cartridge;
 
 mod bitops;
@@ -26,6 +28,31 @@ struct Cli {
 
     #[structopt(parse(from_os_str))]
     cartridge_path: std::path::PathBuf,
+}
+
+const SCANCODES: [Scancode; 8] = [
+    Scancode::W, Scancode::S, Scancode::A, Scancode::D,
+    Scancode::X, Scancode::Z, Scancode::L, Scancode::K
+];
+
+fn scancode_to_joypad_input(scancode: &Scancode) -> JoypadInput {
+    match *scancode {
+        Scancode::W => JoypadInput::Up,
+        Scancode::S => JoypadInput::Down,
+        Scancode::A => JoypadInput::Left,
+        Scancode::D => JoypadInput::Right,
+        Scancode::X => JoypadInput::Start,
+        Scancode::Z => JoypadInput::Select,
+        Scancode::L => JoypadInput::A,
+        Scancode::K => JoypadInput::B,
+        _ => panic!("No mapping for key {:?}", scancode)
+    }
+}
+
+fn collect_pressed(keyboard_state: &KeyboardState) -> Vec<JoypadInput> {
+    SCANCODES.iter().filter(|sc| keyboard_state.is_scancode_pressed(**sc)).
+        map(|sc| scancode_to_joypad_input(sc)).
+        collect()
 }
 
 fn main() {
@@ -55,8 +82,12 @@ fn main() {
 
     gameboy.boot(cartridge, args.skip_boot_rom);
 
+
+
     'running: loop {
-        gameboy.tick();
+        let pressed = collect_pressed(&event_pump.keyboard_state());
+
+        gameboy.tick(&pressed);
 
         for event in event_pump.poll_iter() {
             match event {
