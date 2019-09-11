@@ -52,7 +52,7 @@ impl<'a> Gameboy<'a> {
         self.map_devices(cartridge, skip_boot_rom);
 
         let lcd_controller = self.device_manager.lcd_controller();
-        self.renderer.update_game(lcd_controller.frame_buffer());
+        self.renderer.update_game(&self.frame_buffer);
         self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
         self.renderer.refresh();
     }

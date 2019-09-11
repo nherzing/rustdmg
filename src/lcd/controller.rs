@@ -23,6 +23,9 @@ const OBP1: u16 = 0xFF49;
 const WY: u16 = 0xFF4A;
 const WX: u16 = 0xFF4B;
 
+const STAT_MODE_MASK: u8 = 0b111;
+const STAT_RW_MASK: u8 = 0b01111000;
+
 const TILE_MAP_START: usize = 0x9800;
 const TILE_MAP_OFFSET: usize = TILE_MAP_START - (VRAM_START as usize);
 const TILE_MAP_SIZE: usize = 0x400;
@@ -72,6 +75,15 @@ impl Period {
             _ => None
         }
     }
+
+    fn mode(&self) -> u8 {
+        match self {
+            OAMSearch => 2,
+            PixelTransfer => 3,
+            HBlank => 0,
+            VBlank => 1
+        }
+    }
 }
 
 use Period::*;
@@ -108,7 +120,6 @@ impl State {
 
 pub struct LcdController {
     vram: [u8; VRAM_SIZE],
-    frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT],
     lcdc: u8,
     stat: u8,
     scy: u8,
@@ -131,7 +142,6 @@ impl LcdController {
     pub fn new() -> LcdController {
         LcdController {
             vram: [0; VRAM_SIZE],
-            frame_buffer: [Color::Off; GAME_WIDTH * GAME_HEIGHT],
             lcdc: 0,
             stat: 0,
             scy: 0,
@@ -158,10 +168,6 @@ impl LcdController {
         ]
     }
 
-    pub fn frame_buffer(&self) -> &[Color; GAME_WIDTH * GAME_HEIGHT] {
-        &self.frame_buffer
-    }
-
     pub fn bg_tile_frame_buffer(&mut self) -> &[Color; 128 * 128] {
         self.fill_tile_framebuffer();
         &self.bg_tile_frame_buffer
@@ -178,6 +184,7 @@ impl LcdController {
             self.ly = self.state.ly;
         }
         if orig_period != self.state.period {
+            self.stat = (self.stat & STAT_RW_MASK) | self.state.period.mode();
             if self.state.period == VBlank {
                 self.fill_framebuffer(frame_buffer);
             }
@@ -198,6 +205,17 @@ impl LcdController {
     }
 
     fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
+        if b7!(self.lcdc) == 0 {
+            for p in frame_buffer.iter_mut() {
+                *p = Color::Off;
+            }
+            return;
+        } else {
+            for p in frame_buffer.iter_mut() {
+                *p = Color::White;
+            }
+        }
+
         let bg_tile_set = self.bg_tile_set();
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
@@ -246,19 +264,13 @@ impl MemoryMappedDevice for LcdController {
                 self.vram[(addr - VRAM_START) as usize] = byte;
             }
             LCDC => {
-                if b7!(self.lcdc) == 0 && b7!(byte) == 1 {
-                    for p in self.frame_buffer.iter_mut() {
-                        *p = Color::White;
-                    }
-                }
-                if b7!(self.lcdc) == 1 && b7!(byte) == 0 {
-                    for p in self.frame_buffer.iter_mut() {
-                        *p = Color::Off;
-                    }
-                }
                 self.lcdc = byte;
+                println!("Set LCDC: {:08b}", byte);
             }
-            STAT => { println!("STAT: {:?}", byte); }
+            STAT => {
+                println!("Set STAT: {:08b}", byte);
+                self.stat = (self.stat & STAT_MODE_MASK) | (byte & STAT_RW_MASK);
+            }
             BGP => {
                 self.bgp = byte;
                 self.background_palette = Palette::new(byte);
