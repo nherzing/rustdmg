@@ -12,11 +12,13 @@ impl Cpu {
     pub fn eval(&mut self, memory_bus: &mut MemoryBus) -> u32 {
         if self.halted || self.ime {
             let interrupt_ctrl = memory_bus.devices().interrupt_controller();
-            match interrupt_ctrl.handle(!self.halted) {
+            match interrupt_ctrl.handle(self.ime) {
                 None => {}
                 Some(addr) => {
-                    self.push_pc(0, memory_bus);
-                    self.registers.set16(PC, addr);
+                    if self.ime {
+                        self.push_pc(0, memory_bus);
+                        self.registers.set16(PC, addr);
+                    }
                     self.halted = false;
                     self.ime = false;
                 }

@@ -57,7 +57,6 @@ impl InterruptController {
     }
 
     fn fire(&mut self, interrupt: Interrupt, clear: bool) -> Option<u16> {
-        debug!("FIRE: {:?}", interrupt);
         let flag = interrupt.flag();
         if clear { self.if_reg = self.if_reg ^ flag; }
         Some(interrupt.addr())

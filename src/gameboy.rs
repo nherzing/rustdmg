@@ -108,7 +108,7 @@ impl<'a> Gameboy<'a> {
                     let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
                     match to_wait {
                         Some(d) => { thread::sleep(d) }
-                        None => { debug!("TOO SLOW: {:?}", elapsed) }
+                        None => { debug!("TOO SLOW: {:?}", elapsed); }
                     }
                     return
                 }
