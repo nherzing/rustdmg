@@ -175,7 +175,6 @@ impl LcdController {
 
     pub fn tick(&mut self, clocks: u32, frame_buffer: &mut [Color]) -> Option<Interrupt> {
         self.clocks_since_render += clocks;
-        if b7!(self.lcdc) == 0 { return None }
 
         let orig_period = self.state.period;
         let mut clocks_left = clocks;
