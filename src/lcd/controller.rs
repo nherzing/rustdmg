@@ -133,7 +133,9 @@ pub struct LcdController {
     wy: u8,
     wx: u8,
     clocks_since_render: u32,
-    background_palette: Palette,
+    bg_palette: Palette,
+    ob0_palette: Palette,
+    ob1_palette: Palette,
     state: State,
     bg_tile_frame_buffer: [Color; 128 * 128]
 }
@@ -155,7 +157,9 @@ impl LcdController {
             wy: 0,
             wx: 0,
             clocks_since_render: 0,
-            background_palette: Palette::new(0),
+            bg_palette: Palette::new(0),
+            ob0_palette: Palette::new(0),
+            ob1_palette: Palette::new(0),
             state: State::init(),
             bg_tile_frame_buffer: [Color::Off; 128 * 128],
         }
@@ -221,7 +225,7 @@ impl LcdController {
         for y in 0..GAME_HEIGHT {
             let shifted_y = (y + (self.scy as usize)) % 256;
             for (idx, p) in bg_map.row_iter(shifted_y).enumerate() {
-                let color = self.background_palette.color(p);
+                let color = self.bg_palette.color(p);
                 frame_buffer[y * GAME_WIDTH + idx] = color;
             }
         }
@@ -238,7 +242,7 @@ impl LcdController {
                 let row = tile.row(j);
                 let row_start = origin + 128 * j;
                 for (k, p) in row.iter().enumerate() {
-                    let color = self.background_palette.color(*p);
+                    let color = self.bg_palette.color(*p);
                     bg_tile_frame_buffer[row_start + k] = color;
                 }
             }
@@ -272,10 +276,16 @@ impl MemoryMappedDevice for LcdController {
             }
             BGP => {
                 self.bgp = byte;
-                self.background_palette = Palette::new(byte);
+                self.bg_palette = Palette::new(byte);
             }
-            OBP0 => { }
-            OBP1 => { }
+            OBP0 => {
+                self.obp0 = byte;
+                self.ob0_palette = Palette::new(byte);
+            }
+            OBP1 => {
+                self.obp1 = byte;
+                self.ob1_palette = Palette::new(byte);
+            }
             SCY => {
                 self.scy = byte;
             }
@@ -295,7 +305,7 @@ impl MemoryMappedDevice for LcdController {
         match addr {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize]
-            }
+             }
             LCDC => self.lcdc,
             STAT => {
                debug!("Read STAT: {:08b}", self.stat);
