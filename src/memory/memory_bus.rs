@@ -1,12 +1,12 @@
 use super::memory_map::{MemoryMap, MemoryMappedDeviceManager, MemoryMappedDevice};
 
 pub struct MemoryBus<'a> {
-    memory_map: &'a mut MemoryMap,
+    memory_map: &'a MemoryMap,
     devices: &'a mut MemoryMappedDeviceManager
 }
 
 impl<'a> MemoryBus<'a> {
-    pub fn new(memory_map: &'a mut MemoryMap, devices: &'a mut MemoryMappedDeviceManager) -> MemoryBus<'a> {
+    pub fn new(memory_map: &'a MemoryMap, devices: &'a mut MemoryMappedDeviceManager) -> MemoryBus<'a> {
         MemoryBus { memory_map, devices }
     }
 

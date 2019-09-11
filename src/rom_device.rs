@@ -2,6 +2,7 @@ use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::cartridge::{Cartridge};
 
 pub struct RomDevice {
+    cartridge: Option<Cartridge>,
     memory: Vec<u8>,
 }
 
@@ -10,7 +11,8 @@ impl RomDevice {
         let mut v = Vec::with_capacity(size);
         v.resize(size, 0);
         RomDevice {
-            memory: v
+            memory: v,
+            cartridge: None
         }
     }
 
@@ -20,16 +22,30 @@ impl RomDevice {
         }
     }
 
-    pub fn load_cartridge(&mut self, cartridge: &Cartridge) {
+    pub fn load_cartridge(&mut self, cartridge: Cartridge) {
         for (i, &v) in cartridge.data().iter().enumerate() {
             self.memory[i] = v
         }
+        self.cartridge = Some(cartridge);
     }
 }
 
 impl MemoryMappedDevice for RomDevice {
     fn set8(&mut self, addr: u16, byte: u8) {
-        debug!("Can't write to ROM device at 0x{:X} = 0x{:X}.", addr, byte);
+        match addr {
+            0xFF50 => {
+                match &self.cartridge {
+                    Some(cartridge) => {
+                        for (i, &v) in cartridge.data().iter().enumerate() {
+                            self.memory[i] = v
+                        }
+                    }
+                    None => {}
+                }
+            }
+            _ => { debug!("Can't write to ROM device at 0x{:X} = 0x{:X}.", addr, byte); }
+        }
+
     }
 
     fn get8(&self, addr: u16) -> u8 {

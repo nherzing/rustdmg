@@ -63,7 +63,7 @@ impl<'a> Gameboy<'a> {
         self.memory_map.set_symbols(cartridge.symbols());
 
         let rom_bank = self.device_manager.rom_bank0();
-        rom_bank.load_cartridge(&cartridge);
+        rom_bank.load_cartridge(cartridge);
         if !skip_boot_rom { rom_bank.load(boot_rom); }
 
         self.memory_map.register(RAMBank0, &[MappedArea(0xC000, 0x4000)]);
@@ -71,12 +71,13 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(Timer, &TimerController::mapped_areas());
         self.memory_map.register(LCD, &LcdController::mapped_areas());
         self.memory_map.register(Joypad, &JoypadController::mapped_areas());
+        self.memory_map.register(ROMBank0, &[MappedArea(0xFF50, 1)]);
     }
 
     pub fn tick(&mut self, pressed_inputs: &[JoypadInput]) {
         let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH as u64);
         let now = time::Instant::now();
-        let mut mb = MemoryBus::new(&mut self.memory_map, &mut self.device_manager);
+        let mut mb = MemoryBus::new(&self.memory_map, &mut self.device_manager);
 
         mb.devices().joypad_controller().set_pressed(pressed_inputs);
         loop {
