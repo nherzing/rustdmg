@@ -6,8 +6,6 @@ pub struct Palette {
     palette: u8
 }
 
-const COLORS: [Color; 4] = [White, LightGray, DarkGray, Black];
-
 impl Palette {
     pub fn new(palette: u8) -> Self {
         Palette { palette }

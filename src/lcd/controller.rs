@@ -1,10 +1,10 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
-use crate::renderer::{Color, GAME_WIDTH, GAME_HEIGHT};
-use crate::clocks::{CLOCKS_PER_SCREEN_REFRESH};
+use crate::renderer::{Color, GAME_WIDTH};
 use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
+use super::oam::{OamEntries, OamPixel, PaletteNumber};
 use crate::interrupt_controller::Interrupt;
 
 pub const VRAM_START: u16 = 0x8000;
@@ -213,16 +213,54 @@ impl LcdController {
         }
     }
 
-    fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
+    fn oam_enabled(&self) -> bool {
+        b1!(self.lcdc) == 1
+    }
+
+    fn bg_row(&self) -> [u8; GAME_WIDTH] {
         let bg_tile_set = self.bg_tile_set();
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
 
-        let row_start = (self.ly as usize) * GAME_WIDTH;
         let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
-        let bg_row = bg_map.row(bg_y);
+
+        let mut result = [0; GAME_WIDTH];
+        result.copy_from_slice(&bg_map.row(bg_y)[0..GAME_WIDTH]);
+        result
+    }
+
+    fn oam_row(&self) -> [Option<OamPixel>; GAME_WIDTH] {
+        if !self.oam_enabled() {
+            return [None; GAME_WIDTH];
+        }
+
+        let oam_tile_set = TileSet::new(&self.vram[0x0..0x1000], false);
+        let oam_entries = OamEntries::new(&self.oam, &oam_tile_set);
+        oam_entries.row(self.ly)
+    }
+
+    fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
+        let bg_row = self.bg_row();
+        let oam_row = self.oam_row();
+        let row_start = (self.ly as usize) * GAME_WIDTH;
+
         for x in 0..GAME_WIDTH {
-            let color = self.bg_palette.color(bg_row[x]);
+            let bg_color = self.bg_palette.color(bg_row[x]);
+            let color = match oam_row[x] {
+                None => bg_color,
+                Some(pixel) => {
+                    if pixel.value == 0 {
+                        bg_color
+                    } else if pixel.above_background || bg_row[x] == 0 {
+                        match pixel.palette_number {
+                            PaletteNumber::Zero => self.ob0_palette.color(pixel.value),
+                            PaletteNumber::One => self.ob1_palette.color(pixel.value)
+                        }
+                    } else {
+                        bg_color
+                    }
+                }
+            };
             frame_buffer[row_start + x] = color
         }
     }
@@ -259,7 +297,6 @@ impl MemoryMappedDevice for LcdController {
             }
             LCDC => {
                 self.lcdc = byte;
-               debug!("Set LCDC: {:08b}", byte);
             }
             STAT => {
                debug!("Set STAT: {:08b}", byte);
@@ -283,9 +320,6 @@ impl MemoryMappedDevice for LcdController {
             SCX => { }
             WY => { }
             WX => { }
-            DMA => {
-               debug!("Set DMA: {:08b}", byte);
-            }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
 
         }
@@ -299,7 +333,6 @@ impl MemoryMappedDevice for LcdController {
              }
             LCDC => self.lcdc,
             STAT => {
-               debug!("Read STAT: {:08b}", self.stat);
                 self.stat
             }
             LY => {
