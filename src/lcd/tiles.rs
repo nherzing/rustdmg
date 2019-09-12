@@ -36,5 +36,4 @@ impl<'a> TileSet<'a> {
         } * 16;
         Tile::new(&self.data[start..start+16])
     }
-
 }

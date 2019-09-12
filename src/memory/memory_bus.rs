@@ -23,6 +23,12 @@ impl<'a> MemoryBus<'a> {
     }
 
     pub fn set8(&mut self, addr: u16, byte: u8) {
+        if addr == 0xFF46 {
+            let source = (byte as u16) << 8;
+            let data = self.get_slice(source, 0xA0).to_owned();
+            self.devices.lcd_controller().dma(&data);
+            return;
+        }
         self.get_device(addr).set8(addr, byte);
     }
 

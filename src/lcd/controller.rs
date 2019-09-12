@@ -10,13 +10,15 @@ use crate::interrupt_controller::Interrupt;
 pub const VRAM_START: u16 = 0x8000;
 pub const VRAM_SIZE: usize = 0x2000;
 pub const VRAM_END: u16 = VRAM_START + VRAM_SIZE as u16 - 1;
+pub const OAM_START: u16 = 0xFE00;
+pub const OAM_SIZE: usize = 0xA0;
+pub const OAM_END: u16 = OAM_START + OAM_SIZE as u16 - 1;
 const LCDC: u16 = 0xFF40;
 const STAT: u16 = 0xFF41;
 const SCY: u16 = 0xFF42;
 const SCX: u16 = 0xFF43;
 const LY: u16 = 0xFF44;
 const LYC: u16 = 0xFF45;
-const DMA: u16 = 0xFF46;
 const BGP: u16 = 0xFF47;
 const OBP0: u16 = 0xFF48;
 const OBP1: u16 = 0xFF49;
@@ -53,7 +55,7 @@ impl Period {
             OAMSearch => (PixelTransfer, ly),
             PixelTransfer => (HBlank, ly),
             HBlank => {
-                if ly < 144 {
+                if ly < 143 {
                     (OAMSearch, ly+1)
                 } else {
                     (VBlank, ly+1)
@@ -120,13 +122,13 @@ impl State {
 
 pub struct LcdController {
     vram: [u8; VRAM_SIZE],
+    oam: [u8; OAM_SIZE],
     lcdc: u8,
     stat: u8,
     scy: u8,
     scx: u8,
     ly: u8,
     lyc: u8,
-    dma: u8,
     bgp: u8,
     obp0: u8,
     obp1: u8,
@@ -144,13 +146,13 @@ impl LcdController {
     pub fn new() -> LcdController {
         LcdController {
             vram: [0; VRAM_SIZE],
+            oam: [0; OAM_SIZE],
             lcdc: 0,
             stat: 0,
             scy: 0,
             scx: 0,
             ly: 0,
             lyc: 0,
-            dma: 0,
             bgp: 0,
             obp0: 0,
             obp1: 0,
@@ -188,13 +190,17 @@ impl LcdController {
         }
         if orig_period != self.state.period {
             self.stat = (self.stat & STAT_RW_MASK) | self.state.period.mode();
-            if self.state.period == VBlank {
+            if self.state.period == PixelTransfer {
                 self.fill_framebuffer(frame_buffer);
             }
             self.state.period.interrupt()
         } else {
             None
         }
+    }
+
+    pub fn dma(&mut self, data: &[u8]) {
+        self.oam.copy_from_slice(data);
     }
 
     fn bg_tile_set(&self) -> TileSet {
@@ -208,26 +214,16 @@ impl LcdController {
     }
 
     fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
-        if b7!(self.lcdc) == 0 {
-            for p in frame_buffer.iter_mut() {
-                *p = Color::Off;
-            }
-            return;
-        } else {
-            for p in frame_buffer.iter_mut() {
-                *p = Color::White;
-            }
-        }
-
         let bg_tile_set = self.bg_tile_set();
         let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
-        for y in 0..GAME_HEIGHT {
-            let shifted_y = (y + (self.scy as usize)) % 256;
-            for (idx, p) in bg_map.row_iter(shifted_y).enumerate() {
-                let color = self.bg_palette.color(p);
-                frame_buffer[y * GAME_WIDTH + idx] = color;
-            }
+
+        let row_start = (self.ly as usize) * GAME_WIDTH;
+        let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
+        let bg_row = bg_map.row(bg_y);
+        for x in 0..GAME_WIDTH {
+            let color = self.bg_palette.color(bg_row[x]);
+            frame_buffer[row_start + x] = color
         }
     }
 
@@ -250,14 +246,6 @@ impl LcdController {
 
         self.bg_tile_frame_buffer = bg_tile_frame_buffer;
     }
-
-    pub fn wants_refresh(&self) -> bool {
-        self.clocks_since_render >= CLOCKS_PER_SCREEN_REFRESH
-    }
-
-    pub fn refresh(&mut self) {
-        self.clocks_since_render = 0;
-    }
 }
 
 impl MemoryMappedDevice for LcdController {
@@ -265,6 +253,9 @@ impl MemoryMappedDevice for LcdController {
         match addr {
             VRAM_START ... VRAM_END => {
                 self.vram[(addr - VRAM_START) as usize] = byte;
+            }
+            OAM_START ... OAM_END => {
+                self.oam[(addr - OAM_START) as usize] = byte;
             }
             LCDC => {
                 self.lcdc = byte;
