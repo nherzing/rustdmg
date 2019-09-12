@@ -7,6 +7,7 @@ const IF: u16 = 0xFF0F;
 #[derive(Debug, Clone, Copy)]
 pub enum Interrupt {
     VBlank,
+    Stat,
     Timer
 }
 
@@ -14,6 +15,7 @@ impl Interrupt {
     fn addr(&self) -> u16 {
         match self {
             Interrupt::VBlank => 0x40,
+            Interrupt::Stat => 0x48,
             Interrupt::Timer => 0x50
         }
     }
@@ -21,6 +23,7 @@ impl Interrupt {
     fn flag(&self) -> u8 {
         1 << match self {
             Interrupt::VBlank => 0,
+            Interrupt::Stat => 1,
             Interrupt::Timer => 2
         }
     }
@@ -49,6 +52,8 @@ impl InterruptController {
     pub fn handle(&mut self, clear: bool) -> Option<u16> {
         if self.enabled_and_requested(Interrupt::VBlank) {
             self.fire(Interrupt::VBlank, clear)
+        } else if self.enabled_and_requested(Interrupt::Stat) {
+            self.fire(Interrupt::Stat, clear)
         } else if self.enabled_and_requested(Interrupt::Timer) {
             self.fire(Interrupt::Timer, clear)
         } else {

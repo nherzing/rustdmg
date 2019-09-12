@@ -73,14 +73,14 @@ impl TimerController {
         ]
     }
 
-    pub fn tick(&mut self, clocks: u32) -> Option<Interrupt> {
+    pub fn tick<F>(&mut self, clocks: u32, mut fire_interrupt: F) where
+    F: FnMut(Interrupt) {
         self.div_ticker.tick(clocks);
         if self.tima_running {
             if self.tima_ticker.tick(clocks) {
-                return Some(Interrupt::Timer)
+                fire_interrupt(Interrupt::Timer)
             }
         };
-        None
     }
 }
 

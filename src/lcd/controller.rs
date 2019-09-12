@@ -25,7 +25,7 @@ const OBP1: u16 = 0xFF49;
 const WY: u16 = 0xFF4A;
 const WX: u16 = 0xFF4B;
 
-const STAT_MODE_MASK: u8 = 0b111;
+const STAT_RO_MASK: u8 = 0b111;
 const STAT_RW_MASK: u8 = 0b01111000;
 
 const TILE_MAP_START: usize = 0x9800;
@@ -179,7 +179,8 @@ impl LcdController {
         &self.bg_tile_frame_buffer
     }
 
-    pub fn tick(&mut self, clocks: u32, frame_buffer: &mut [Color]) -> Option<Interrupt> {
+    pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) where
+    F: FnMut(Interrupt) {
         self.clocks_since_render += clocks;
 
         let orig_period = self.state.period;
@@ -189,13 +190,30 @@ impl LcdController {
             self.ly = self.state.ly;
         }
         if orig_period != self.state.period {
-            self.stat = (self.stat & STAT_RW_MASK) | self.state.period.mode();
-            if self.state.period == PixelTransfer {
-                self.fill_framebuffer(frame_buffer);
+            let ly_coincidence = self.ly == self.lyc;
+            self.stat = (self.stat & STAT_RW_MASK) | ((ly_coincidence as u8) << 2) | self.state.period.mode();
+            match self.state.period {
+                OAMSearch => {
+                    if b5!(self.stat) == 1 || (b6!(self.stat) == 1 && ly_coincidence) {
+                        fire_interrupt(Interrupt::Stat);
+                    }
+                }
+                PixelTransfer => {
+                    self.fill_framebuffer(frame_buffer);
+                }
+                VBlank => {
+                    fire_interrupt(Interrupt::VBlank);
+                    if b4!(self.stat) == 1 || (b6!(self.stat) == 1 && ly_coincidence) {
+                        fire_interrupt(Interrupt::Stat);
+                    }
+                }
+                HBlank => {
+                    if b3!(self.stat) == 1 {
+                        fire_interrupt(Interrupt::Stat);
+                    }
+                }
+
             }
-            self.state.period.interrupt()
-        } else {
-            None
         }
     }
 
@@ -225,7 +243,10 @@ impl LcdController {
         let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
 
         let mut result = [0; GAME_WIDTH];
-        result.copy_from_slice(&bg_map.row(bg_y)[0..GAME_WIDTH]);
+        let bg_row = bg_map.row(bg_y);
+        for x in 0..GAME_WIDTH {
+            result[x] = bg_row[(x + (self.scx as usize)) % 256];
+        }
         result
     }
 
@@ -297,10 +318,11 @@ impl MemoryMappedDevice for LcdController {
             }
             LCDC => {
                 self.lcdc = byte;
+//                debug!("Set LCDC: {:08b}", byte);
             }
             STAT => {
                debug!("Set STAT: {:08b}", byte);
-                self.stat = (self.stat & STAT_MODE_MASK) | (byte & STAT_RW_MASK);
+                self.stat = (self.stat & STAT_RO_MASK) | (byte & STAT_RW_MASK);
             }
             BGP => {
                 self.bgp = byte;
@@ -317,9 +339,18 @@ impl MemoryMappedDevice for LcdController {
             SCY => {
                 self.scy = byte;
             }
-            SCX => { }
-            WY => { }
-            WX => { }
+            SCX => {
+                self.scx = byte;
+            }
+            LYC => {
+                self.lyc = byte;
+            }
+            WX => {
+                debug!("No WX support: {}", byte);
+            }
+            WY => {
+                debug!("No WY support: {}", byte);
+            }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
 
         }

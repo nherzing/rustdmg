@@ -29,7 +29,7 @@ impl<'a> Gameboy<'a> {
 
         let mut device_manager = MemoryMappedDeviceManager::new();
         device_manager.set_rom_bank0(RomDevice::new(0x8000));
-        device_manager.set_ram_bank0(RamDevice::new(0x8000, 0x8000));
+        device_manager.set_ram_bank0(RamDevice::new(0xA000, 0x6000));
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
@@ -66,7 +66,7 @@ impl<'a> Gameboy<'a> {
         rom_bank.load_cartridge(cartridge);
         if !skip_boot_rom { rom_bank.load(boot_rom); }
 
-        self.memory_map.register(RAMBank0, &[MappedArea(0xC000, 0x4000)]);
+        self.memory_map.register(RAMBank0, &[MappedArea(0xA000, 0x6000)]);
         self.memory_map.register(Interrupt, &InterruptController::mapped_areas());
         self.memory_map.register(Timer, &TimerController::mapped_areas());
         self.memory_map.register(LCD, &LcdController::mapped_areas());
@@ -83,39 +83,32 @@ impl<'a> Gameboy<'a> {
         loop {
             let clocks = self.cpu.step(&mut mb);
 
-            match mb.devices().timer().tick(clocks) {
-                None => {}
-                Some(interrupt) => {
-                    mb.devices().interrupt_controller().request(interrupt)
-                }
-            }
+            let mut interrupts = Vec::new();
+            let mut fire_interrupt = |interrupt| interrupts.push(interrupt);
+            mb.devices().timer().tick(clocks, &mut fire_interrupt);
+            mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer, fire_interrupt);
 
-            let lcd_interrupt = mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer);
+            for interrupt in interrupts {
+                mb.devices().interrupt_controller().request(interrupt);
 
-            match lcd_interrupt {
-                None => {}
-                Some(interrupt) => {
-                    mb.devices().interrupt_controller().request(interrupt)
-                }
-            }
+                match interrupt {
+                    Interrupt::VBlank => {
+                        self.renderer.update_game(&self.frame_buffer);
+                        self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
 
-            match lcd_interrupt {
-                Some(Interrupt::VBlank) => {
-                    self.renderer.update_game(&self.frame_buffer);
-                    self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
-
-                    self.renderer.refresh();
-                    let elapsed = now.elapsed();
-                    let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
-                    match to_wait {
-                        Some(d) => { thread::sleep(d) }
-                        None => {
-//                            debug!("TOO SLOW: {:?}", elapsed);
+                        self.renderer.refresh();
+                        let elapsed = now.elapsed();
+                        let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
+                        match to_wait {
+                            Some(d) => { thread::sleep(d) }
+                            None => {
+                                //                            debug!("TOO SLOW: {:?}", elapsed);
+                            }
                         }
+                        return
                     }
-                    return
+                    _ => {}
                 }
-                _ => {}
             }
         }
     }
