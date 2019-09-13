@@ -28,8 +28,10 @@ const WX: u16 = 0xFF4B;
 const STAT_RO_MASK: u8 = 0b111;
 const STAT_RW_MASK: u8 = 0b01111000;
 
-const TILE_MAP_START: usize = 0x9800;
-const TILE_MAP_OFFSET: usize = TILE_MAP_START - (VRAM_START as usize);
+const TILE_MAP_0_START: usize = 0x9800;
+const TILE_MAP_0_OFFSET: usize = TILE_MAP_0_START - (VRAM_START as usize);
+const TILE_MAP_1_START: usize = 0x9C00;
+const TILE_MAP_1_OFFSET: usize = TILE_MAP_1_START - (VRAM_START as usize);
 const TILE_MAP_SIZE: usize = 0x400;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -231,13 +233,25 @@ impl LcdController {
         }
     }
 
+    fn window_enabled(&self) -> bool {
+        b5!(self.lcdc) == 1
+    }
+
     fn oam_enabled(&self) -> bool {
         b1!(self.lcdc) == 1
     }
 
+    fn map_data(&self, flag: u8) -> &[u8] {
+        if flag == 1 {
+            &self.vram[TILE_MAP_1_OFFSET..TILE_MAP_1_OFFSET+TILE_MAP_SIZE]
+        } else {
+            &self.vram[TILE_MAP_0_OFFSET..TILE_MAP_0_OFFSET+TILE_MAP_SIZE]
+        }
+    }
+
     fn bg_row(&self) -> [u8; GAME_WIDTH] {
         let bg_tile_set = self.bg_tile_set();
-        let bg_map_data = &self.vram[TILE_MAP_OFFSET..TILE_MAP_OFFSET+TILE_MAP_SIZE];
+        let bg_map_data = self.map_data(b3!(self.lcdc));
         let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
 
         let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
@@ -246,6 +260,30 @@ impl LcdController {
         let bg_row = bg_map.row(bg_y);
         for x in 0..GAME_WIDTH {
             result[x] = bg_row[(x + (self.scx as usize)) % 256];
+        }
+        result
+    }
+
+    fn window_row(&self) -> [Option<u8>; GAME_WIDTH] {
+        if !self.window_enabled() ||
+            self.wx as usize >= GAME_WIDTH + 7 ||
+            self.ly < self.wy
+        {
+            return [None; GAME_WIDTH];
+        }
+
+        let tile_set = self.bg_tile_set();
+        let map_data = self.map_data(b6!(self.lcdc));
+        let map = BackgroundMap::new(map_data, &tile_set);
+        let row = map.row((self.ly - self.wy) as usize);
+
+        let mut result = [None; GAME_WIDTH];
+        for x in 0..GAME_WIDTH {
+            result[x] = if x+7 < (self.wx as usize) {
+                None
+            } else {
+                Some(row[x + 7 - (self.wx as usize)])
+            };
         }
         result
     }
@@ -262,11 +300,15 @@ impl LcdController {
 
     fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
         let bg_row = self.bg_row();
+        let window_row = self.window_row();
         let oam_row = self.oam_row();
         let row_start = (self.ly as usize) * GAME_WIDTH;
 
         for x in 0..GAME_WIDTH {
-            let bg_color = self.bg_palette.color(bg_row[x]);
+            let bg_color = match window_row[x] {
+                Some(p) => self.bg_palette.color(p),
+                None => self.bg_palette.color(bg_row[x])
+            };
             let color = match oam_row[x] {
                 None => bg_color,
                 Some(pixel) => {
@@ -346,10 +388,10 @@ impl MemoryMappedDevice for LcdController {
                 self.lyc = byte;
             }
             WX => {
-                debug!("No WX support: {}", byte);
+                self.wx = byte;
             }
             WY => {
-                debug!("No WY support: {}", byte);
+                self.wy = byte;
             }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
 
