@@ -1,8 +1,8 @@
 #![macro_use]
 
-// macro_rules! b0 {
-//     ($x:expr) => (($x >> 0) & 0x1);
-// }
+macro_rules! b0 {
+    ($x:expr) => (($x >> 0) & 0x1);
+}
 
 macro_rules! b1 {
     ($x:expr) => (($x >> 1) & 0x1);

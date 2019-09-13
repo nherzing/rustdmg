@@ -28,6 +28,7 @@ mod interrupt_controller;
 mod timer_controller;
 mod joypad_controller;
 mod lcd;
+mod serial;
 mod renderer;
 
 #[derive(StructOpt)]

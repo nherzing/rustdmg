@@ -7,6 +7,7 @@ use crate::interrupt_controller::{Interrupt, InterruptController};
 use crate::joypad_controller::{JoypadController, JoypadInput};
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
+use crate::serial::SerialController;
 use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::clocks::{NS_PER_SCREEN_REFRESH};
 use crate::cartridge::Cartridge;
@@ -33,6 +34,7 @@ impl<'a> Gameboy<'a> {
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
+        device_manager.set_serial_controller(SerialController::new());
         device_manager.set_joypad_controller(JoypadController::new());
 
         Gameboy {
@@ -71,6 +73,7 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(Timer, &TimerController::mapped_areas());
         self.memory_map.register(LCD, &LcdController::mapped_areas());
         self.memory_map.register(Joypad, &JoypadController::mapped_areas());
+        self.memory_map.register(Serial, &SerialController::mapped_areas());
         self.memory_map.register(ROMBank0, &[MappedArea(0xFF50, 1)]);
     }
 
@@ -86,7 +89,8 @@ impl<'a> Gameboy<'a> {
             let mut interrupts = Vec::new();
             let mut fire_interrupt = |interrupt| interrupts.push(interrupt);
             mb.devices().timer().tick(clocks, &mut fire_interrupt);
-            mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer, fire_interrupt);
+            mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer, &mut fire_interrupt);
+            mb.devices().serial_controller().tick(clocks, &mut fire_interrupt);
 
             for interrupt in interrupts {
                 mb.devices().interrupt_controller().request(interrupt);

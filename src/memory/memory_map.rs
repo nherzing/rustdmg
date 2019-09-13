@@ -3,6 +3,7 @@ use crate::rom_device::RomDevice;
 use crate::joypad_controller::JoypadController;
 use crate::interrupt_controller::InterruptController;
 use crate::timer_controller::TimerController;
+use crate::serial::SerialController;
 use crate::lcd::LcdController;
 use crate::cartridge::Symbols;
 
@@ -25,7 +26,8 @@ pub enum MemoryMappedDeviceId {
     Timer,
     Interrupt,
     Joypad,
-    LCD
+    LCD,
+    Serial
 }
 
 use MemoryMappedDeviceId::*;
@@ -79,6 +81,7 @@ pub struct MemoryMappedDeviceManager {
     joypad_controller: Option<JoypadController>,
     timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
+    serial_controller: Option<SerialController>
 }
 
 impl MemoryMappedDeviceManager {
@@ -89,7 +92,8 @@ impl MemoryMappedDeviceManager {
             interrupt_controller: None,
             joypad_controller: None,
             timer: None,
-            lcd_controller: None
+            lcd_controller: None,
+            serial_controller: None
         }
     }
 
@@ -159,6 +163,17 @@ impl MemoryMappedDeviceManager {
         }
     }
 
+    pub fn set_serial_controller(&mut self, device: SerialController) {
+        self.serial_controller = Some(device);
+    }
+
+    pub fn serial_controller(&mut self) -> &mut SerialController {
+        match self.serial_controller {
+            Some(ref mut v) => v,
+            None => panic!("No registered SerialController")
+        }
+    }
+
     pub fn get(&mut self, id: MemoryMappedDeviceId) -> &mut MemoryMappedDevice {
         match id {
             ROMBank0 => self.rom_bank0(),
@@ -166,7 +181,8 @@ impl MemoryMappedDeviceManager {
             Timer => self.timer(),
             LCD => self.lcd_controller(),
             Interrupt => self.interrupt_controller(),
-            Joypad => self.joypad_controller()
+            Joypad => self.joypad_controller(),
+            Serial => self.serial_controller()
         }
     }
 }

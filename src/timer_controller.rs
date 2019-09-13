@@ -1,5 +1,4 @@
-use crate::memory::memory_map::MemoryMappedDevice;
-use crate::memory::memory_map::MappedArea;
+use crate::memory::memory_map::{MemoryMappedDevice, MappedArea};
 use crate::interrupt_controller::Interrupt;
 use crate::clocks::CLOCK_FREQ;
 

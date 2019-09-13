@@ -8,7 +8,8 @@ const IF: u16 = 0xFF0F;
 pub enum Interrupt {
     VBlank,
     Stat,
-    Timer
+    Timer,
+    Serial
 }
 
 impl Interrupt {
@@ -16,7 +17,8 @@ impl Interrupt {
         match self {
             Interrupt::VBlank => 0x40,
             Interrupt::Stat => 0x48,
-            Interrupt::Timer => 0x50
+            Interrupt::Timer => 0x50,
+            Interrupt::Serial => 0x58
         }
     }
 
@@ -24,7 +26,8 @@ impl Interrupt {
         1 << match self {
             Interrupt::VBlank => 0,
             Interrupt::Stat => 1,
-            Interrupt::Timer => 2
+            Interrupt::Timer => 2,
+            Interrupt::Serial => 3
         }
     }
 }
@@ -56,6 +59,8 @@ impl InterruptController {
             self.fire(Interrupt::Stat, clear)
         } else if self.enabled_and_requested(Interrupt::Timer) {
             self.fire(Interrupt::Timer, clear)
+        } else if self.enabled_and_requested(Interrupt::Serial) {
+            self.fire(Interrupt::Serial, clear)
         } else {
             None
         }
