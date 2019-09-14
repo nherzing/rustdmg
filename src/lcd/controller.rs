@@ -313,9 +313,7 @@ impl LcdController {
             let color = match oam_row[x] {
                 None => bg_color,
                 Some(pixel) => {
-                    if pixel.value == 0 {
-                        bg_color
-                    } else if pixel.above_background || bg_row[x] == 0 {
+                    if pixel.above_background || bg_row[x] == 0 {
                         match pixel.palette_number {
                             PaletteNumber::Zero => self.ob0_palette.color(pixel.value),
                             PaletteNumber::One => self.ob1_palette.color(pixel.value)

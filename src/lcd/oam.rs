@@ -72,11 +72,13 @@ impl<'a> OamEntries<'a> {
         for entry in visible_entries {
             let tile_row = entry.row(ly);
             let right_edge_x = entry.x as usize;
-            if right_edge_x < 8 || right_edge_x >= GAME_WIDTH + 8 { continue }
-            let left_edge_x = right_edge_x - 8;
+            let left_edge_x = (right_edge_x as i16) - 8;
             for idx in 0usize..8 {
-                if result[left_edge_x + idx].is_none() {
-                    result[left_edge_x + idx] = Some(OamPixel {
+                if left_edge_x + (idx as i16) < 0 { continue }
+                if left_edge_x as usize + idx >= GAME_WIDTH { break }
+                if tile_row[idx] == 0 { continue }
+                if result[left_edge_x as usize + idx].is_none() {
+                    result[left_edge_x as usize + idx] = Some(OamPixel {
                         value: tile_row[idx],
                         above_background: entry.above_background,
                         palette_number: entry.palette_number
