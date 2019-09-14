@@ -2,7 +2,6 @@ use std::{thread, time};
 use crate::memory::memory_bus::MemoryBus;
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::RamDevice;
-use crate::rom_device::RomDevice;
 use crate::interrupt_controller::{Interrupt, InterruptController};
 use crate::joypad_controller::{JoypadController, JoypadInput};
 use crate::timer_controller::TimerController;
@@ -12,8 +11,6 @@ use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::clocks::{NS_PER_SCREEN_REFRESH};
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
-
-use MemoryMappedDeviceId::*;
 
 pub struct Gameboy<'a> {
     cpu: Cpu,
@@ -29,8 +26,7 @@ impl<'a> Gameboy<'a> {
         if debug { cpu.enable_debug(); }
 
         let mut device_manager = MemoryMappedDeviceManager::new();
-        device_manager.set_rom_bank0(RomDevice::new(0x8000));
-        device_manager.set_ram_bank0(RamDevice::new(0xA000, 0x6000));
+        device_manager.set_ram_bank0(RamDevice::new(0xC000, 0x4000));
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
@@ -46,11 +42,13 @@ impl<'a> Gameboy<'a> {
         }
     }
 
-    pub fn boot(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
+    pub fn boot(&mut self, mut cartridge: Cartridge, skip_boot_rom: bool) {
         debug!("Booting: {:?}", cartridge);
         if skip_boot_rom {
             self.cpu.skip_boot_rom();
+            cartridge.clear_boot_rom();
         }
+
         self.map_devices(cartridge, skip_boot_rom);
 
         let lcd_controller = self.device_manager.lcd_controller();
@@ -60,21 +58,16 @@ impl<'a> Gameboy<'a> {
     }
 
     fn map_devices(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
-        let boot_rom = include_bytes!("boot_rom.gb");
-        self.memory_map.register(ROMBank0, &[MappedArea(0, 0x8000)]);
+        self.memory_map.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0xC000, 0x4000)]);
+        self.memory_map.register(MemoryMappedDeviceId::Cartridge, &Cartridge::mapped_areas());
         self.memory_map.set_symbols(cartridge.symbols());
+        self.device_manager.set_cartridge(cartridge);
 
-        let rom_bank = self.device_manager.rom_bank0();
-        rom_bank.load_cartridge(cartridge);
-        if !skip_boot_rom { rom_bank.load(boot_rom); }
-
-        self.memory_map.register(RAMBank0, &[MappedArea(0xA000, 0x6000)]);
-        self.memory_map.register(Interrupt, &InterruptController::mapped_areas());
-        self.memory_map.register(Timer, &TimerController::mapped_areas());
-        self.memory_map.register(LCD, &LcdController::mapped_areas());
-        self.memory_map.register(Joypad, &JoypadController::mapped_areas());
-        self.memory_map.register(Serial, &SerialController::mapped_areas());
-        self.memory_map.register(ROMBank0, &[MappedArea(0xFF50, 1)]);
+        self.memory_map.register(MemoryMappedDeviceId::Interrupt, &InterruptController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::Timer, &TimerController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::LCD, &LcdController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::Joypad, &JoypadController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::Serial, &SerialController::mapped_areas());
     }
 
     pub fn tick(&mut self, pressed_inputs: &[JoypadInput]) {

@@ -1,5 +1,5 @@
+use crate::cartridge::Cartridge;
 use crate::ram_device::RamDevice;
-use crate::rom_device::RomDevice;
 use crate::joypad_controller::JoypadController;
 use crate::interrupt_controller::InterruptController;
 use crate::timer_controller::TimerController;
@@ -21,7 +21,7 @@ pub trait MemoryMappedDevice {
 
 #[derive(Copy, Clone, Debug)]
 pub enum MemoryMappedDeviceId {
-    ROMBank0,
+    Cartridge,
     RAMBank0,
     Timer,
     Interrupt,
@@ -56,7 +56,6 @@ impl MemoryMap {
         }
     }
 
-
     pub fn register(&mut self, id: MemoryMappedDeviceId, mapped_areas: &[MappedArea]) {
         for area in mapped_areas {
             let start = area.0 as usize;
@@ -75,7 +74,7 @@ impl MemoryMap {
 }
 
 pub struct MemoryMappedDeviceManager {
-    rom_bank0: Option<RomDevice>,
+    cartridge: Option<Cartridge>,
     ram_bank0: Option<RamDevice>,
     interrupt_controller: Option<InterruptController>,
     joypad_controller: Option<JoypadController>,
@@ -87,7 +86,7 @@ pub struct MemoryMappedDeviceManager {
 impl MemoryMappedDeviceManager {
     pub fn new() -> Self {
         MemoryMappedDeviceManager {
-            rom_bank0: None,
+            cartridge: None,
             ram_bank0: None,
             interrupt_controller: None,
             joypad_controller: None,
@@ -97,14 +96,14 @@ impl MemoryMappedDeviceManager {
         }
     }
 
-    pub fn set_rom_bank0(&mut self, device: RomDevice) {
-        self.rom_bank0 = Some(device);
+    pub fn set_cartridge(&mut self, device: Cartridge) {
+        self.cartridge = Some(device);
     }
 
-    pub fn rom_bank0(&mut self) -> &mut RomDevice {
-        match self.rom_bank0 {
+    pub fn cartridge(&mut self) -> &mut Cartridge {
+        match self.cartridge {
             Some(ref mut v) => v,
-            None => panic!("No registered ROMBank0")
+            None => panic!("No registered Cartridge")
         }
     }
 
@@ -176,7 +175,7 @@ impl MemoryMappedDeviceManager {
 
     pub fn get(&mut self, id: MemoryMappedDeviceId) -> &mut MemoryMappedDevice {
         match id {
-            ROMBank0 => self.rom_bank0(),
+            Cartridge => self.cartridge(),
             RAMBank0 => self.ram_bank0(),
             Timer => self.timer(),
             LCD => self.lcd_controller(),

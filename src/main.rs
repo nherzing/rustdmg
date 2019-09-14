@@ -1,4 +1,4 @@
-use std::iter::{ Iterator };
+use std::iter::Iterator;
 use structopt::StructOpt;
 use sdl2::event::Event;
 use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
@@ -22,7 +22,6 @@ mod clocks;
 mod memory;
 mod cpu;
 mod ram_device;
-mod rom_device;
 mod gameboy;
 mod interrupt_controller;
 mod timer_controller;
