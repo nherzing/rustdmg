@@ -169,10 +169,11 @@ impl LcdController {
         }
     }
 
-    pub fn mapped_areas() -> [MappedArea; 2] {
+    pub fn mapped_areas() -> [MappedArea; 3] {
         [
             MappedArea(VRAM_START, VRAM_SIZE),
-            MappedArea(LCDC, (WX - LCDC + 1) as usize)
+            MappedArea(LCDC, (LYC - LCDC + 1) as usize),
+            MappedArea(BGP, (WX - BGP + 1) as usize)
         ]
     }
 
@@ -410,8 +411,15 @@ impl MemoryMappedDevice for LcdController {
             }
             LY => {
                 self.ly
-            }
+            },
+            SCX => self.scx,
             SCY => self.scy,
+            LYC => self.lyc,
+            BGP => self.bgp,
+            OBP0 => self.obp0,
+            OBP1 => self.obp1,
+            WY => self.wy,
+            WX => self.wx,
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
 
         }

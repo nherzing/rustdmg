@@ -26,7 +26,10 @@ impl<'a> MemoryBus<'a> {
         match addr {
             0xFF46 => {
                 let source = (byte as u16) << 8;
-                let data = self.get_slice(source, 0xA0).to_owned();
+                let mut data = [0; 0xA0];
+                for i in 0..0xA0 {
+                    data[i] = self.get8(source + i as u16);
+                }
                 self.devices.lcd_controller().dma(&data);
             }
             _ => {
@@ -45,12 +48,12 @@ impl<'a> MemoryBus<'a> {
         self.get_device(addr).get8(addr)
     }
 
+    pub fn get_arr3(&mut self, addr: u16) -> [u8; 3] {
+        [self.get8(addr), self.get8(addr + 1), self.get8(addr + 2)]
+    }
+
     pub fn get16(&mut self, addr: u16) -> u16 {
         let device = self.get_device(addr);
         ((device.get8(addr) as u16) << 8) + (device.get8(addr + 1) as u16)
-    }
-
-    pub fn get_slice(&mut self, addr: u16, size: usize) -> &[u8] {
-        &self.get_device(addr).get_slice(addr, size)
     }
 }

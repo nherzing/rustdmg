@@ -483,9 +483,9 @@ impl Cpu {
 
 
     fn disassemble(&self, memory_bus: &mut MemoryBus) -> Instr {
-        let instr_bytes = memory_bus.get_slice(self.registers.pc(), 3);
+        let instr_bytes = memory_bus.get_arr3(self.registers.pc());
 
-        Instr::disassemble(instr_bytes)
+        Instr::disassemble(&instr_bytes)
     }
 }
 
