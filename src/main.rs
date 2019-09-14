@@ -93,8 +93,6 @@ fn main() {
 
     gameboy.boot(cartridge, args.skip_boot_rom);
 
-
-
     'running: loop {
         let pressed = collect_pressed(&event_pump.keyboard_state());
 

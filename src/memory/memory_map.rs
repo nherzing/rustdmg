@@ -14,9 +14,6 @@ pub struct MappedArea(pub u16, pub usize);
 pub trait MemoryMappedDevice {
     fn set8(&mut self, addr: u16, byte: u8);
     fn get8(&self, addr: u16) -> u8;
-    fn get_slice(&self, _addr: u16, _size: usize) -> &[u8] {
-        panic!("Slice not implemented")
-    }
 }
 
 #[derive(Copy, Clone, Debug)]

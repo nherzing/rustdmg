@@ -14,12 +14,6 @@ impl RamDevice {
             memory: v
         }
     }
-
-    pub fn load(&mut self, data: &[u8]) {
-        for (i, &v) in data.iter().enumerate() {
-            self.memory[i] = v
-        }
-    }
 }
 
 impl MemoryMappedDevice for RamDevice {
@@ -29,10 +23,5 @@ impl MemoryMappedDevice for RamDevice {
 
     fn get8(&self, addr: u16) -> u8 {
         self.memory[addr as usize - self.offset]
-    }
-
-    fn get_slice(&self, addr: u16, size: usize) -> &[u8] {
-        let idx = addr as usize - self.offset;
-        &self.memory[idx..idx+size]
     }
 }

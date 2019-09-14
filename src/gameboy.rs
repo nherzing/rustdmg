@@ -49,7 +49,7 @@ impl<'a> Gameboy<'a> {
             cartridge.clear_boot_rom();
         }
 
-        self.map_devices(cartridge, skip_boot_rom);
+        self.map_devices(cartridge);
 
         let lcd_controller = self.device_manager.lcd_controller();
         self.renderer.update_game(&self.frame_buffer);
@@ -57,7 +57,7 @@ impl<'a> Gameboy<'a> {
         self.renderer.refresh();
     }
 
-    fn map_devices(&mut self, cartridge: Cartridge, skip_boot_rom: bool) {
+    fn map_devices(&mut self, cartridge: Cartridge) {
         self.memory_map.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0xC000, 0x4000)]);
         self.memory_map.register(MemoryMappedDeviceId::Cartridge, &Cartridge::mapped_areas());
         self.memory_map.set_symbols(cartridge.symbols());

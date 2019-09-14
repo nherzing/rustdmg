@@ -73,13 +73,6 @@ impl Period {
         }
     }
 
-    fn interrupt(&self) -> Option<Interrupt> {
-        match self {
-            VBlank => Some(Interrupt::VBlank),
-            _ => None
-        }
-    }
-
     fn mode(&self) -> u8 {
         match self {
             OAMSearch => 2,

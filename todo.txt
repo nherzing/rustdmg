@@ -1,3 +1,0 @@
-- get output working in a test
-- clean up framebuffers & textures
-- investigate push/pop

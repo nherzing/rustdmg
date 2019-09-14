@@ -51,9 +51,4 @@ impl<'a> MemoryBus<'a> {
     pub fn get_arr3(&mut self, addr: u16) -> [u8; 3] {
         [self.get8(addr), self.get8(addr + 1), self.get8(addr + 2)]
     }
-
-    pub fn get16(&mut self, addr: u16) -> u16 {
-        let device = self.get_device(addr);
-        ((device.get8(addr) as u16) << 8) + (device.get8(addr + 1) as u16)
-    }
 }

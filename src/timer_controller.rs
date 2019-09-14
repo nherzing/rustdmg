@@ -117,16 +117,18 @@ impl MemoryMappedDevice for TimerController {
 mod tests {
     use super::*;
 
+    fn fire(_interrupt: Interrupt) { }
+
     #[test]
     fn test_read_div() {
         let mut t = TimerController::new();
 
         assert_eq!(t.get8(DIV), 0);
-        t.tick(32);
+        t.tick(32, fire);
         assert_eq!(t.get8(DIV), 0);
-        t.tick(31);
+        t.tick(31, fire);
         assert_eq!(t.get8(DIV), 0);
-        t.tick(1);
+        t.tick(1, fire);
         assert_eq!(t.get8(DIV), 1);
     }
 
@@ -134,9 +136,9 @@ mod tests {
     fn test_div_big_tick() {
         let mut t = TimerController::new();
 
-        t.tick(64*5 + 63);
+        t.tick(64*5 + 63, fire);
         assert_eq!(t.get8(DIV), 5);
-        t.tick(1);
+        t.tick(1, fire);
         assert_eq!(t.get8(DIV), 6);
     }
 
@@ -144,11 +146,11 @@ mod tests {
     fn test_div_reset() {
         let mut t = TimerController::new();
 
-        t.tick(64*5 + 4);
+        t.tick(64*5 + 4, fire);
         assert_eq!(t.get8(DIV), 5);
         t.set8(DIV, 42);
         assert_eq!(t.get8(DIV), 0);
-        t.tick(61);
+        t.tick(61, fire);
         assert_eq!(t.get8(DIV), 1);
     }
 
@@ -156,11 +158,11 @@ mod tests {
     fn test_div_overflow() {
         let mut t = TimerController::new();
 
-        t.tick(64*255 + 63);
+        t.tick(64*255 + 63, fire);
         assert_eq!(t.get8(DIV), 255);
-        t.tick(2);
+        t.tick(2, fire);
         assert_eq!(t.get8(DIV), 0);
-        t.tick(63);
+        t.tick(63, fire);
         assert_eq!(t.get8(DIV), 1);
     }
 }

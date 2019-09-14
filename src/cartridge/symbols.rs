@@ -1,5 +1,4 @@
 use usize;
-use std::fmt;
 use std::fs;
 use std::collections::HashMap;
 

@@ -1,7 +1,5 @@
 use super::registers::{Register};
 use crate::memory::memory_bus::{MemoryBus};
-use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
-use crate::ram_device::{RamDevice};
 use super::instr::{Src, FlagCondition, Opcode, Instr};
 
 use super::Cpu;
@@ -491,11 +489,15 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
+    use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDevice, MemoryMappedDeviceManager, MemoryMappedDeviceId};
+    use crate::ram_device::{RamDevice};
     use super::*;
 
     fn new_from_slice(data: &[u8]) -> (MemoryMap, MemoryMappedDeviceManager) {
         let mut device = RamDevice::new(0, 0x10000);
-        device.load(data);
+        for (addr, &v) in data.iter().enumerate() {
+            device.set8(addr as u16, v);
+        }
         let mut mm = MemoryMap::new();
         mm.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0, 0x10000)]);
         let mut mmdm = MemoryMappedDeviceManager::new();

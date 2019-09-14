@@ -1,5 +1,4 @@
 use super::tiles::TileSet;
-use crate::renderer::{GAME_WIDTH};
 
 pub struct BackgroundMap<'a> {
     data: &'a [u8],

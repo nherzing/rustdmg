@@ -1,10 +1,7 @@
 #[derive(Debug)]
 pub enum MbcType {
     RomOnly = 0,
-    MBC1 = 1,
-    MBC1_RAM = 2,
-    MBC1_RAM_BATTERY = 3,
-    MBC2 = 5
+    MBC1 = 1
 }
 
 enum Mode {
@@ -36,7 +33,7 @@ impl Mbc for RomOnly {
         0
     }
 
-    fn set8(&mut self, addr: u16, byte: u8) { }
+    fn set8(&mut self, _addr: u16, _byte: u8) { }
 
     fn mbc_type(&self) -> MbcType {
         MbcType::RomOnly
@@ -83,7 +80,7 @@ impl Mbc for Mbc1 {
     }
 
     fn set8(&mut self, addr: u16, byte: u8) {
-        println!("MBC1 SET: {:X}, {:X}", addr, byte);
+        debug!("MBC1 SET: {:X}, {:X}", addr, byte);
         match addr {
             0x0000 ... 0x1FFF => {
                 self.ram_bank_enabled = byte & 0x0A == 0x0A;

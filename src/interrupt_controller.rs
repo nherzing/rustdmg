@@ -1,10 +1,11 @@
+use std::slice::Iter;
 use crate::memory::memory_map::MemoryMappedDevice;
 use crate::memory::memory_map::MappedArea;
 
 const IE: u16 = 0xFFFF;
 const IF: u16 = 0xFF0F;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Interrupt {
     VBlank,
     Stat,
@@ -12,23 +13,30 @@ pub enum Interrupt {
     Serial
 }
 
+use Interrupt::*;
+
 impl Interrupt {
     fn addr(&self) -> u16 {
         match self {
-            Interrupt::VBlank => 0x40,
-            Interrupt::Stat => 0x48,
-            Interrupt::Timer => 0x50,
-            Interrupt::Serial => 0x58
+            VBlank => 0x40,
+            Stat => 0x48,
+            Timer => 0x50,
+            Serial => 0x58
         }
     }
 
     fn flag(&self) -> u8 {
         1 << match self {
-            Interrupt::VBlank => 0,
-            Interrupt::Stat => 1,
-            Interrupt::Timer => 2,
-            Interrupt::Serial => 3
+            VBlank => 0,
+            Stat => 1,
+            Timer => 2,
+            Serial => 3
         }
+    }
+
+    fn priority_iter() -> Iter<'static, Interrupt> {
+        static PRIORITY_ORDER: [Interrupt; 4] = [VBlank, Stat, Timer, Serial];
+        PRIORITY_ORDER.into_iter()
     }
 }
 
@@ -53,17 +61,13 @@ impl InterruptController {
     }
 
     pub fn handle(&mut self, clear: bool) -> Option<u16> {
-        if self.enabled_and_requested(Interrupt::VBlank) {
-            self.fire(Interrupt::VBlank, clear)
-        } else if self.enabled_and_requested(Interrupt::Stat) {
-            self.fire(Interrupt::Stat, clear)
-        } else if self.enabled_and_requested(Interrupt::Timer) {
-            self.fire(Interrupt::Timer, clear)
-        } else if self.enabled_and_requested(Interrupt::Serial) {
-            self.fire(Interrupt::Serial, clear)
-        } else {
-            None
+        for interrupt in Interrupt::priority_iter() {
+            if self.enabled_and_requested(*interrupt) {
+                return self.fire(*interrupt, clear)
+            }
         }
+
+        None
     }
 
     fn fire(&mut self, interrupt: Interrupt, clear: bool) -> Option<u16> {
@@ -117,20 +121,21 @@ mod tests {
         assert_eq!(ic.handle(false), None);
 
         ic.set8(IF, 0xFF);
-        assert_eq!(ic.handle(false), Some(0x50));
+        assert_eq!(ic.handle(false), Some(0x40));
         assert_eq!(ic.get8(IF), 0xFF);
 
-        assert_eq!(ic.handle(true), Some(0x50));
-        assert_eq!(ic.get8(IF), 0xFB);
+        assert_eq!(ic.handle(true), Some(0x40));
+        assert_eq!(ic.get8(IF), 0xFE);
     }
 
     #[test]
     fn test_request() {
         let mut ic = InterruptController::new();
 
-        ic.request(Interrupt::Timer);
+        assert_eq!(ic.get8(IF), 0x00);
+        ic.request(Timer);
         assert_eq!(ic.get8(IF), 0x04);
-        ic.request(Interrupt::Timer);
+        ic.request(Timer);
         assert_eq!(ic.get8(IF), 0x04);
     }
 }
