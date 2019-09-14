@@ -395,7 +395,7 @@ impl Cpu {
                 self.halted = true;
             }
             STOP => {
-                panic!("STOP not implemented");
+                debug!("STOP not implemented");
             }
             INVALID(b) => {
                 panic!("Invalid opcode: {:x?}", b)
