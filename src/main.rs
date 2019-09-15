@@ -2,8 +2,10 @@ use std::iter::Iterator;
 use structopt::StructOpt;
 use sdl2::event::Event;
 use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
+use sdl2::audio::AudioSpecDesired;
 use crate::joypad_controller::JoypadInput;
 use crate::cartridge::Cartridge;
+use crate::clocks::AUDIO_SAMPLE_RATE;
 
 #[cfg(feature = "debug")]
 macro_rules! debug {
@@ -27,6 +29,7 @@ mod interrupt_controller;
 mod timer_controller;
 mod joypad_controller;
 mod lcd;
+mod sound;
 mod serial;
 mod renderer;
 
@@ -76,6 +79,8 @@ fn main() {
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
+
     let window = video_subsystem
         .window("Gameboy", 160*2 + 50 + 128*2, 144*2)
         .position_centered()
@@ -86,9 +91,19 @@ fn main() {
         .build()
         .unwrap();
     let texture_creator = canvas.texture_creator();
+
+    let desired_spec = AudioSpecDesired {
+        freq: Some(AUDIO_SAMPLE_RATE as i32),
+        channels: Some(2),
+        samples: None
+    };
+    let mut audio_queue = audio_subsystem.open_queue(None, &desired_spec).unwrap();
+    audio_queue.resume();
+    debug!("AUDIO SPEC: {:?}", audio_queue.spec());
+
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let renderer = renderer::Renderer::new(&mut canvas, &texture_creator);
+    let renderer = renderer::Renderer::new(&mut canvas, &texture_creator, &mut audio_queue);
     let mut gameboy = gameboy::Gameboy::new(renderer, args.debug);
 
     gameboy.boot(cartridge, args.skip_boot_rom);

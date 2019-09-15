@@ -1,6 +1,9 @@
 use sdl2::pixels::{PixelFormatEnum, Color as PColor};
 use sdl2::render::{WindowCanvas, TextureCreator, Texture};
+use sdl2::audio::AudioQueue;
 use sdl2::rect::Rect;
+use samplerate::{Samplerate, ConverterType};
+use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE};
 
 const WHITE: PColor = PColor { r: 114, g: 129, b: 77, a: 255 };
 const LIGHT_GRAY: PColor = PColor { r: 86, g: 107, b: 86, a: 255 };
@@ -34,11 +37,14 @@ impl Color {
 pub struct Renderer<'a> {
     canvas: &'a mut WindowCanvas,
     game_texture: Texture<'a>,
-    bg_tile_texture: Texture<'a>
+    bg_tile_texture: Texture<'a>,
+    audio_data: Vec<f32>,
+    audio_converter: Samplerate,
+    audio_queue: &'a mut AudioQueue<f32>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(canvas: &'a mut WindowCanvas, texture_creator: &'a TextureCreator<sdl2::video::WindowContext>) -> Self {
+    pub fn new(canvas: &'a mut WindowCanvas, texture_creator: &'a TextureCreator<sdl2::video::WindowContext>, audio_queue: &'a mut AudioQueue<f32>) -> Self {
         let game_texture = texture_creator.create_texture_streaming(
             PixelFormatEnum::RGB24, GAME_WIDTH as u32, GAME_HEIGHT as u32
         ).unwrap();
@@ -46,7 +52,12 @@ impl<'a> Renderer<'a> {
             PixelFormatEnum::RGB24, 128, 128
         ).unwrap();
 
-        Renderer { canvas, game_texture, bg_tile_texture }
+        let converter = Samplerate::new(ConverterType::SincFastest, CLOCK_FREQ, AUDIO_SAMPLE_RATE, 2).unwrap();
+        Renderer {
+            canvas, game_texture, bg_tile_texture,
+            audio_converter: converter,
+            audio_data: Vec::new(), audio_queue
+        }
     }
 
     pub fn refresh(&mut self) {
@@ -70,6 +81,16 @@ impl<'a> Renderer<'a> {
                 }
             }
         }).unwrap();
+    }
+
+    pub fn queue_audio(&mut self, data: &[f32]) {
+        self.audio_data.extend_from_slice(data);
+    }
+
+    pub fn flush_audio(&mut self) {
+        let data = self.audio_converter.process(&self.audio_data).unwrap();
+        self.audio_queue.queue(&data);
+        self.audio_data.clear();
     }
 
     pub fn update_bg_tile_texture(&mut self, frame_buffer: &[Color]) {

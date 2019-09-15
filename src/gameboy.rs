@@ -6,6 +6,7 @@ use crate::interrupt_controller::{Interrupt, InterruptController};
 use crate::joypad_controller::{JoypadController, JoypadInput};
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
+use crate::sound::SoundController;
 use crate::serial::SerialController;
 use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::clocks::{NS_PER_SCREEN_REFRESH};
@@ -30,6 +31,7 @@ impl<'a> Gameboy<'a> {
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
+        device_manager.set_sound_controller(SoundController::new());
         device_manager.set_serial_controller(SerialController::new());
         device_manager.set_joypad_controller(JoypadController::new());
 
@@ -66,6 +68,7 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(MemoryMappedDeviceId::Interrupt, &InterruptController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::Timer, &TimerController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::LCD, &LcdController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::Sound, &SoundController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::Joypad, &JoypadController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::Serial, &SerialController::mapped_areas());
     }
@@ -84,22 +87,25 @@ impl<'a> Gameboy<'a> {
             mb.devices().timer().tick(clocks, &mut fire_interrupt);
             mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer, &mut fire_interrupt);
             mb.devices().serial_controller().tick(clocks, &mut fire_interrupt);
+            let new_audio_data = mb.devices().sound_controller().tick(clocks);
+
+            self.renderer.queue_audio(&new_audio_data);
 
             for interrupt in interrupts {
                 mb.devices().interrupt_controller().request(interrupt);
 
                 match interrupt {
                     Interrupt::VBlank => {
+                        self.renderer.flush_audio();
                         self.renderer.update_game(&self.frame_buffer);
                         self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
-
                         self.renderer.refresh();
                         let elapsed = now.elapsed();
                         let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
                         match to_wait {
                             Some(d) => { thread::sleep(d) }
                             None => {
-                                //                            debug!("TOO SLOW: {:?}", elapsed);
+                                debug!("TOO SLOW: {:?}", elapsed);
                             }
                         }
                         return

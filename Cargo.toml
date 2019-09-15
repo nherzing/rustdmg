@@ -12,3 +12,4 @@ debug = []
 [dependencies]
 structopt = { version = "0.2", default-features = false }
 sdl2 = "0.32"
+samplerate = "0.2.1"

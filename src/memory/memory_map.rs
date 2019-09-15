@@ -5,6 +5,7 @@ use crate::interrupt_controller::InterruptController;
 use crate::timer_controller::TimerController;
 use crate::serial::SerialController;
 use crate::lcd::LcdController;
+use crate::sound::SoundController;
 use crate::cartridge::Symbols;
 
 const MEMORY_SIZE: usize = 0x10000;
@@ -24,7 +25,8 @@ pub enum MemoryMappedDeviceId {
     Interrupt,
     Joypad,
     LCD,
-    Serial
+    Serial,
+    Sound
 }
 
 use MemoryMappedDeviceId::*;
@@ -77,6 +79,7 @@ pub struct MemoryMappedDeviceManager {
     joypad_controller: Option<JoypadController>,
     timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
+    sound_controller: Option<SoundController>,
     serial_controller: Option<SerialController>
 }
 
@@ -89,6 +92,7 @@ impl MemoryMappedDeviceManager {
             joypad_controller: None,
             timer: None,
             lcd_controller: None,
+            sound_controller: None,
             serial_controller: None
         }
     }
@@ -159,6 +163,17 @@ impl MemoryMappedDeviceManager {
         }
     }
 
+    pub fn set_sound_controller(&mut self, device: SoundController) {
+        self.sound_controller = Some(device);
+    }
+
+    pub fn sound_controller(&mut self) -> &mut SoundController {
+        match self.sound_controller {
+            Some(ref mut v) => v,
+            None => panic!("No registered Sound Controller")
+        }
+    }
+
     pub fn set_serial_controller(&mut self, device: SerialController) {
         self.serial_controller = Some(device);
     }
@@ -176,6 +191,7 @@ impl MemoryMappedDeviceManager {
             RAMBank0 => self.ram_bank0(),
             Timer => self.timer(),
             LCD => self.lcd_controller(),
+            Sound => self.sound_controller(),
             Interrupt => self.interrupt_controller(),
             Joypad => self.joypad_controller(),
             Serial => self.serial_controller()
