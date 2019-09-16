@@ -95,7 +95,7 @@ fn main() {
     let desired_spec = AudioSpecDesired {
         freq: Some(AUDIO_SAMPLE_RATE as i32),
         channels: Some(2),
-        samples: None
+        samples: Some(1024)
     };
     let mut audio_queue = audio_subsystem.open_queue(None, &desired_spec).unwrap();
     audio_queue.resume();

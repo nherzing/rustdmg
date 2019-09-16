@@ -1,4 +1,3 @@
-use std::{thread, time};
 use crate::memory::memory_bus::MemoryBus;
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::RamDevice;
@@ -9,7 +8,6 @@ use crate::lcd::LcdController;
 use crate::sound::SoundController;
 use crate::serial::SerialController;
 use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
-use crate::clocks::{NS_PER_SCREEN_REFRESH};
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 
@@ -54,9 +52,8 @@ impl<'a> Gameboy<'a> {
         self.map_devices(cartridge);
 
         let lcd_controller = self.device_manager.lcd_controller();
-        self.renderer.update_game(&self.frame_buffer);
         self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
-        self.renderer.refresh();
+        self.renderer.reset();
     }
 
     fn map_devices(&mut self, cartridge: Cartridge) {
@@ -74,8 +71,6 @@ impl<'a> Gameboy<'a> {
     }
 
     pub fn tick(&mut self, pressed_inputs: &[JoypadInput]) {
-        let ns_per_screen_refresh = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH as u64);
-        let now = time::Instant::now();
         let mut mb = MemoryBus::new(&self.memory_map, &mut self.device_manager);
 
         mb.devices().joypad_controller().set_pressed(pressed_inputs);
@@ -96,18 +91,8 @@ impl<'a> Gameboy<'a> {
 
                 match interrupt {
                     Interrupt::VBlank => {
-                        self.renderer.flush_audio();
-                        self.renderer.update_game(&self.frame_buffer);
+                        self.renderer.push_frame_buffer(&self.frame_buffer);
                         self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
-                        self.renderer.refresh();
-                        let elapsed = now.elapsed();
-                        let to_wait = ns_per_screen_refresh.checked_sub(elapsed);
-                        match to_wait {
-                            Some(d) => { thread::sleep(d) }
-                            None => {
-                                debug!("TOO SLOW: {:?}", elapsed);
-                            }
-                        }
                         return
                     }
                     _ => {}
