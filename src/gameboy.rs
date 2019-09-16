@@ -53,7 +53,6 @@ impl<'a> Gameboy<'a> {
 
         let lcd_controller = self.device_manager.lcd_controller();
         self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
-        self.renderer.reset();
     }
 
     fn map_devices(&mut self, cartridge: Cartridge) {

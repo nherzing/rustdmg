@@ -5,7 +5,7 @@ use sdl2::render::{WindowCanvas, TextureCreator, Texture};
 use sdl2::audio::AudioQueue;
 use sdl2::rect::Rect;
 use samplerate::{Samplerate, ConverterType};
-use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, SAMPLES_PER_FRAME};
+use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, SAMPLES_PER_FRAME, NS_PER_SAMPLE};
 
 const WHITE: PColor = PColor { r: 114, g: 129, b: 77, a: 255 };
 const LIGHT_GRAY: PColor = PColor { r: 86, g: 107, b: 86, a: 255 };
@@ -43,8 +43,6 @@ pub struct Renderer<'a> {
     audio_data: Vec<f32>,
     audio_converter: Samplerate,
     audio_queue: &'a mut AudioQueue<f32>,
-    last_draw: time::Instant,
-    until_next_draw: time::Duration,
     frame_buffer_queue: VecDeque<Vec<Color>>
 }
 
@@ -63,51 +61,38 @@ impl<'a> Renderer<'a> {
             audio_converter: converter,
             audio_data: Vec::new(),
             audio_queue,
-            last_draw: time::Instant::now(),
-            until_next_draw: time::Duration::from_nanos(NS_PER_SCREEN_REFRESH),
             frame_buffer_queue: VecDeque::new()
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.frame_buffer_queue.clear();
-        self.last_draw = time::Instant::now();
-        self.until_next_draw = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH);
     }
 
     pub fn push_frame_buffer(&mut self, frame_buffer: &[Color]) {
         self.flush_audio();
         self.frame_buffer_queue.push_back(frame_buffer.to_owned());
-        if self.frame_buffer_queue.len() >= 3 || self.until_draw().is_none() {
+        if self.frame_buffer_queue.len() >= 3|| self.until_draw().is_none() {
             self.wait_for_frame();
             self.draw_frame();
         }
     }
 
     fn until_draw(&self) -> Option<time::Duration> {
-        self.until_next_draw.checked_sub(self.last_draw.elapsed())
+        let buffered_samples = (self.audio_queue.size() / 2 / 4) as u64;
+        let ns_buffered = buffered_samples * NS_PER_SAMPLE;
+        let ns_want = NS_PER_SCREEN_REFRESH * (self.frame_buffer_queue.len() as u64 - 1);
+        time::Duration::from_nanos(ns_buffered).checked_sub(time::Duration::from_nanos(ns_want))
     }
 
     fn wait_for_frame(&mut self) {
         match self.until_draw() {
             None => {
-                let over = self.last_draw.elapsed().as_nanos() - self.until_next_draw.as_nanos();
-                if over > NS_PER_SCREEN_REFRESH as u128 {
-                    self.until_next_draw = time::Duration::from_nanos(0);
-                } else {
-                    self.until_next_draw = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH - over as u64);
-                }
-                self.last_draw = time::Instant::now();
-                debug!("Dropping frame... now have {:?}", self.until_next_draw);
+                debug!("Dropping frame...");
                 self.frame_buffer_queue.pop_front();
                 if !self.frame_buffer_queue.is_empty() {
                     self.wait_for_frame();
                 }
             }
             Some(d) => {
-                if d.as_millis() > 5 {
-                    thread::sleep(time::Duration::from_millis(1));
-                    self.wait_for_frame();
+                if d.as_nanos() > NS_PER_SCREEN_REFRESH as u128 {
+                    thread::sleep(d.checked_sub(time::Duration::from_nanos(NS_PER_SCREEN_REFRESH)).unwrap());
                 }
             }
         }
@@ -119,17 +104,6 @@ impl<'a> Renderer<'a> {
                 debug!("No framebuffer ready!!!");
             }
             Some(frame_buffer) => {
-                match self.until_draw() {
-                    None => {
-                        let over = self.last_draw.elapsed().as_nanos() - self.until_next_draw.as_nanos();
-                        debug!("OVER: {:?}", over);
-                        self.until_next_draw = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH - over as u64);
-                    }
-                    Some(d) => {
-                        self.until_next_draw = time::Duration::from_nanos(NS_PER_SCREEN_REFRESH).checked_add(d).unwrap();
-                    }
-                }
-                self.last_draw = time::Instant::now();
                 self.game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
                     for y in 0..GAME_HEIGHT {
                         for x in 0..GAME_WIDTH {
@@ -163,11 +137,12 @@ impl<'a> Renderer<'a> {
         }
         let samples_per_frame = SAMPLES_PER_FRAME as usize;
         if self.audio_data.len() < samples_per_frame {
+            let v = *self.audio_data.last().unwrap();
             for _ in 0..(samples_per_frame - self.audio_data.len()) {
-                self.audio_data.push(0.0);
+                self.audio_data.push(v);
             }
         }
-        let data = self.audio_converter.process(&self.audio_data).unwrap();
+        let data = self.audio_converter.process(&self.audio_data[0..samples_per_frame]).unwrap();
         self.audio_queue.queue(&data);
         self.audio_data.clear();
     }

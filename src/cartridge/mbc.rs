@@ -80,7 +80,6 @@ impl Mbc for Mbc1 {
     }
 
     fn set8(&mut self, addr: u16, byte: u8) {
-        debug!("MBC1 SET: {:X}, {:X}", addr, byte);
         match addr {
             0x0000 ... 0x1FFF => {
                 self.ram_bank_enabled = byte & 0x0A == 0x0A;
