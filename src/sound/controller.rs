@@ -209,9 +209,9 @@ impl SoundController {
         for _ in 0..clocks {
             self.pulse_a.tick();
             let sample = self.pulse_a.sample();
-            let v = (sample as f32) / 15.0;
-            result.push(v);
-            result.push(v);
+            let v = ((sample as f64) / 15.0) * 2.0 - 1.0;
+            result.push(v as f32);
+            result.push(v as f32);
         }
 
         result
