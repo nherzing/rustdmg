@@ -181,14 +181,20 @@ impl PulseWave {
 
 pub struct SoundController {
     on: bool,
-    pulse_a: PulseWave
+    pulse_a: PulseWave,
+    pulse_b: PulseWave,
+    nr50: u8,
+    nr51: u8
 }
 
 impl SoundController {
     pub fn new() -> Self {
         SoundController {
             on: false,
-            pulse_a: PulseWave::new()
+            pulse_a: PulseWave::new(),
+            pulse_b: PulseWave::new(),
+            nr50: 0,
+            nr51: 0
         }
     }
 
@@ -208,10 +214,34 @@ impl SoundController {
 
         for _ in 0..clocks {
             self.pulse_a.tick();
-            let sample = self.pulse_a.sample();
-            let v = ((sample as f64) / 15.0) * 2.0 - 1.0;
-            result.push(v as f32);
-            result.push(v as f32);
+            self.pulse_b.tick();
+            let mut l_sample = 0.0;
+            let mut r_sample = 0.0;
+
+            let pulse_a_sample = ((self.pulse_a.sample() as f32) / 15.0) * 2.0 - 1.0;
+            let pulse_b_sample = ((self.pulse_b.sample() as f32) / 15.0) * 2.0 - 1.0;
+
+            if b4!(self.nr51) == 1 {
+                l_sample += pulse_a_sample;
+            }
+            if b0!(self.nr51) == 1 {
+                r_sample += pulse_a_sample;
+            }
+            if b5!(self.nr51) == 1 {
+                l_sample += pulse_b_sample;
+            }
+            if b1!(self.nr51) == 1 {
+                r_sample += pulse_b_sample;
+            }
+
+            let l_volume = ((self.nr50 >> 4) & 0x7) + 1;
+            let r_volume = (self.nr50 & 0x7) + 1;
+
+            l_sample *= l_volume as f32;
+            r_sample *= r_volume as f32;
+
+            result.push(l_sample / 8.0);
+            result.push(r_sample / 8.0);
         }
 
         result
@@ -222,42 +252,47 @@ impl MemoryMappedDevice for SoundController {
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
             NR50 => {
-                let so2_volume = (byte >> 4) & 0x7;
-                let so1_volume = byte & 0x7;
-                debug!("Set NR50: {:08b}, so2: {}, so1: {}", byte, so2_volume, so1_volume);
+                self.nr50 = byte;
             }
             NR51 => {
-                debug!("Set NR51: {:08b} (output selection)", byte);
+                self.nr51 = byte;
             }
             NR52 => {
                 self.on = b7!(byte) == 1;
-                debug!("Set NR52: on: {}", self.on);
             }
             NR11 => {
-                let duty = byte >> 6;
-                let length = byte & 0x3F;
-                debug!("Set NR11: {:08b}, duty: {}, length: {}", byte, duty, length);
                 self.pulse_a.set_duty(byte >> 6);
                 // SET LENGTH
             }
             NR12 => {
-                let volume = byte >> 4;
-                let direction = if b3!(byte) == 0 { Decrease } else { Increase };
-                let period = byte & 0x7;
-                debug!("Set NR12: {:08b}, volume: {}, direction: {:?}, period: {}", byte, volume, direction, period);
                 self.pulse_a.set_volume_envelope(VolumeEnvelope::new_from_byte(byte));
             }
             NR13 => {
-                debug!("Set NR13: {:08b}", byte);
                 self.pulse_a.set_freq_lower(byte);
             }
             NR14 => {
-                debug!("Set NR14: {:08b}", byte);
                 self.pulse_a.set_freq_upper(byte & 0x7);
                 if b7!(byte) == 1 {
                     self.pulse_a.restart();
                 }
             }
+            NR21 => {
+                self.pulse_b.set_duty(byte >> 6);
+                // SET LENGTH
+            }
+            NR22 => {
+                self.pulse_b.set_volume_envelope(VolumeEnvelope::new_from_byte(byte));
+            }
+            NR23 => {
+                self.pulse_b.set_freq_lower(byte);
+            }
+            NR24 => {
+                self.pulse_b.set_freq_upper(byte & 0x7);
+                if b7!(byte) == 1 {
+                    self.pulse_b.restart();
+                }
+            }
+            _ => {}
             _ => panic!("Invalid set address 0x{:X}: 0x{:X} mapped to Sound Controller", addr, byte)
         }
     }
