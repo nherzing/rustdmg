@@ -65,6 +65,8 @@ impl VolumeEnvelope {
     }
 
     fn tick(&mut self) {
+        if self.period == 0 { return }
+
         if self.ticks_left == 0 {
             self.ticks_left = (self.period as u32) * CLOCK_FREQ / 64;
             match self.direction {
