@@ -1,3 +1,4 @@
+use std::{time, thread};
 use std::iter::Iterator;
 use structopt::StructOpt;
 use sdl2::event::Event;
@@ -107,11 +108,16 @@ fn main() {
     let mut gameboy = gameboy::Gameboy::new(renderer, args.debug);
 
     gameboy.boot(cartridge, args.skip_boot_rom);
+    let mut paused = false;
 
     'running: loop {
         let pressed = collect_pressed(&event_pump.keyboard_state());
 
-        gameboy.tick(&pressed);
+        if !paused {
+            gameboy.tick(&pressed);
+        } else {
+            thread::sleep(time::Duration::from_millis(10));
+        }
 
         for event in event_pump.poll_iter() {
             match event {
@@ -120,6 +126,12 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(Keycode::Space),
+                    ..
+                } => {
+                    paused = !paused;
+                }
                 _ => {}
             }
         }
