@@ -7,18 +7,21 @@ pub enum LengthCounterAction {
 
 use LengthCounterAction::*;
 
+#[derive(Debug)]
 pub struct LengthCounter {
     enabled: bool,
-    length: u8,
-    ticks_left: u32
+    length: u16,
+    ticks_left: u32,
+    max: u16
 }
 
 impl LengthCounter {
-    pub fn new() -> Self {
+    pub fn new(max: u16) -> Self {
         LengthCounter {
             enabled: false,
             length: 0,
-            ticks_left: 0
+            ticks_left: 0,
+            max
         }
     }
 
@@ -44,6 +47,6 @@ impl LengthCounter {
     }
 
     pub fn set_length(&mut self, length: u8) {
-        self.length = 64-length;
+        self.length = self.max - (length as u16);
     }
 }

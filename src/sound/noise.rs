@@ -60,7 +60,7 @@ impl Noise {
             playing: false,
             lfsr: Lfsr::new_from_byte(0x00),
             volume_envelope: VolumeEnvelope::new_from_byte(0x00),
-            length_counter: LengthCounter::new()
+            length_counter: LengthCounter::new(64)
         }
     }
 

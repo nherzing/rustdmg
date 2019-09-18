@@ -66,7 +66,7 @@ impl SquareWave {
             sweep: Sweep::new_from_byte(0x80),
             square_wave: WaveGen::new(),
             volume_envelope: VolumeEnvelope::new_from_byte(0xF3),
-            length_counter: LengthCounter::new()
+            length_counter: LengthCounter::new(64)
         }
     }
 
