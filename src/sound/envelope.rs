@@ -1,7 +1,7 @@
 use crate::clocks::CLOCK_FREQ;
 
 #[derive(Debug)]
-enum Direction {
+pub enum Direction {
     Increase,
     Decrease
 }

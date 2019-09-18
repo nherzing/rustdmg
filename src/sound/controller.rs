@@ -1,6 +1,6 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
-use super::square::SquareWave;
+use super::square::{SquareWave, Sweep};
 use super::noise::{Noise, Lfsr};
 use super::envelope::VolumeEnvelope;
 
@@ -121,6 +121,9 @@ impl MemoryMappedDevice for SoundController {
             }
             NR52 => {
                 self.on = b7!(byte) == 1;
+            }
+            NR10 => {
+                self.square_a.set_sweep(Sweep::new_from_byte(byte));
             }
             NR11 => {
                 self.square_a.set_duty(byte >> 6);

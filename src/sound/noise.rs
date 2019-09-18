@@ -26,7 +26,6 @@ impl Lfsr {
         if self.timer == 0 {
             self.timer = self.frequency();
             let bit = (self.bits & 0x1) ^ ((self.bits >> 1) & 0x1);
-            let oldbits = self.bits;
             self.bits = (bit << (self.len-1)) | (self.bits >> 1);
         } else {
             self.timer -= 1;
