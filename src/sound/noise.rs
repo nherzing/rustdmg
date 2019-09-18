@@ -1,5 +1,6 @@
 use crate::clocks::CLOCK_FREQ;
 use super::envelope::VolumeEnvelope;
+use super::length_counter::{LengthCounter, LengthCounterAction};
 
 const DIVISORS: [u32; 8] = [8, 16, 32, 48, 64, 80, 96, 112];
 
@@ -50,6 +51,7 @@ pub struct Noise {
     playing: bool,
     lfsr: Lfsr,
     volume_envelope: VolumeEnvelope,
+    length_counter: LengthCounter
 }
 
 impl Noise {
@@ -57,7 +59,8 @@ impl Noise {
         Noise {
             playing: false,
             lfsr: Lfsr::new_from_byte(0x00),
-            volume_envelope: VolumeEnvelope::new_from_byte(0x00)
+            volume_envelope: VolumeEnvelope::new_from_byte(0x00),
+            length_counter: LengthCounter::new()
         }
     }
 
@@ -67,6 +70,13 @@ impl Noise {
         }
 
         self.lfsr.tick();
+        match self.length_counter.tick() {
+            LengthCounterAction::Nop => {}
+            LengthCounterAction::Disable => {
+                self.playing = false;
+                return
+            }
+        }
         self.volume_envelope.tick();
     }
 
@@ -80,6 +90,14 @@ impl Noise {
 
     pub fn set_lsrf(&mut self, lfsr: Lfsr) {
         self.lfsr = lfsr;
+    }
+
+    pub fn set_length(&mut self, length: u8) {
+        self.length_counter.set_length(length);
+    }
+
+    pub fn set_length_enabled(&mut self, enabled: bool) {
+        self.length_counter.set_enabled(enabled);
     }
 
     pub fn set_volume_envelope(&mut self, volume_envelope: VolumeEnvelope) {

@@ -1,6 +1,7 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
-use super::square::{SquareWave, Sweep};
+use super::square::{SquareWave};
+use super::sweep::{Sweep};
 use super::noise::{Noise, Lfsr};
 use super::envelope::VolumeEnvelope;
 
@@ -127,7 +128,7 @@ impl MemoryMappedDevice for SoundController {
             }
             NR11 => {
                 self.square_a.set_duty(byte >> 6);
-                // SET LENGTH
+                self.square_a.set_length(byte & 0x3F);
             }
             NR12 => {
                 self.square_a.set_volume_envelope(VolumeEnvelope::new_from_byte(byte));
@@ -137,13 +138,14 @@ impl MemoryMappedDevice for SoundController {
             }
             NR14 => {
                 self.square_a.set_freq_upper(byte & 0x7);
+                self.square_a.set_length_enabled(b6!(byte) == 1);
                 if b7!(byte) == 1 {
                     self.square_a.restart();
                 }
             }
             NR21 => {
                 self.square_b.set_duty(byte >> 6);
-                // SET LENGTH
+                self.square_b.set_length(byte & 0x3F);
             }
             NR22 => {
                 self.square_b.set_volume_envelope(VolumeEnvelope::new_from_byte(byte));
@@ -153,12 +155,13 @@ impl MemoryMappedDevice for SoundController {
             }
             NR24 => {
                 self.square_b.set_freq_upper(byte & 0x7);
+                self.square_b.set_length_enabled(b6!(byte) == 1);
                 if b7!(byte) == 1 {
                     self.square_b.restart();
                 }
             }
             NR41 => {
-                // SET LENGTH
+                self.noise.set_length(byte & 0x3F);
             }
             NR42 => {
                 self.noise.set_volume_envelope(VolumeEnvelope::new_from_byte(byte));
@@ -167,6 +170,7 @@ impl MemoryMappedDevice for SoundController {
                 self.noise.set_lsrf(Lfsr::new_from_byte(byte));
             }
             NR44 => {
+                self.noise.set_length_enabled(b6!(byte) == 1);
                 if b7!(byte) == 1 {
                     self.noise.restart();
                 }
