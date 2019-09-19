@@ -1,7 +1,8 @@
 #[derive(Debug)]
 pub enum MbcType {
-    RomOnly = 0,
-    MBC1 = 1
+    RomOnly,
+    Mbc1,
+    Mbc3
 }
 
 enum Mode {
@@ -119,7 +120,87 @@ impl Mbc for Mbc1 {
     }
 
     fn mbc_type(&self) -> MbcType {
-        MbcType::MBC1
+        MbcType::Mbc1
+    }
+}
+
+struct Mbc3 {
+    ram_rtc_bank_enabled: bool,
+    rom_bank_reg: u8,
+    ram_rtc_bank_reg: u8,
+    ram: Vec<u8>
+}
+
+impl Mbc3 {
+    fn new() -> Self {
+        Mbc3 {
+            ram_rtc_bank_enabled: false,
+            rom_bank_reg: 0,
+            ram_rtc_bank_reg: 0,
+            ram: vec![0; 0x8000]
+        }
+    }
+}
+
+impl Mbc for Mbc3 {
+    fn rom_bank_num(&self) -> u8 {
+        match self.rom_bank_reg {
+            0x00 => 1,
+            n => n
+        }
+    }
+
+    fn get8(&self, addr: u16) -> u8 {
+        match addr {
+            0xA000 ... 0xBFFF => {
+                match self.ram_rtc_bank_reg {
+                    0x0 ... 0x3 => {
+                        let bank_offset = (self.ram_rtc_bank_reg as usize) * 0x2000;
+                        self.ram[bank_offset + (addr as usize) - 0xA000]
+                    }
+                    0x8 ... 0xC => {
+                        debug!("GET RTC REGISTER");
+                        0
+                    }
+                    _ => panic!("Invalid ram_rtc_bank_reg {:X}", self.ram_rtc_bank_reg)
+                }
+            }
+            _ => panic!("Can't get MBC3 at 0x{:X}", addr)
+        }
+    }
+
+    fn set8(&mut self, addr: u16, byte: u8) {
+        match addr {
+            0x0000 ... 0x1FFF => {
+                self.ram_rtc_bank_enabled = byte & 0x0A == 0x0A;
+            }
+            0x2000 ... 0x3FFF => {
+                self.rom_bank_reg = byte & 0x7F;
+            }
+            0x4000 ... 0x5FFF => {
+                self.ram_rtc_bank_reg = byte;
+            }
+            0x6000 ... 0x7FFF => {
+                debug!("LATCH");
+            }
+            0xA000 ... 0xBFFF => {
+                match self.ram_rtc_bank_reg {
+                    0x0 ... 0x3 => {
+                        let bank_offset = (self.ram_rtc_bank_reg as usize) * 0x2000;
+                        self.ram[bank_offset + (addr as usize) - 0xA000] = byte;
+                    }
+                    0x8 ... 0xC => {
+                        debug!("SET RTC REGISTER");
+                    }
+                    _ => panic!("Invalid ram_rtc_bank_reg {:X}", self.ram_rtc_bank_reg)
+                }
+            }
+            _ => panic!("Can't write to MBC3 at 0x{:X}: 0x{:X}", addr, byte)
+        }
+    }
+
+    fn mbc_type(&self) -> MbcType {
+        MbcType::Mbc3
     }
 }
 
@@ -128,7 +209,7 @@ pub fn build_mbc(byte: u8) -> Box<Mbc> {
     match byte {
         0 => Box::new(RomOnly::new()),
         1...3 => Box::new(Mbc1::new()),
-//        0xF...0x13 => Box::new(Mbc3::new()),
+        0xF...0x13 => Box::new(Mbc3::new()),
         _ => panic!("Unsupported mbc type: {}", byte)
     }
 }
