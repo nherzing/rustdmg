@@ -6,13 +6,11 @@ use super::Symbols;
 use super::mbc::{build_mbc, Mbc, MbcType};
 
 const ROM_BANK0_SIZE: usize = 0x4000;
-const RAM_BANK0_SIZE: usize = 0x2000;
 
 pub struct Cartridge<> {
     path: std::path::PathBuf,
     data: Vec<u8>,
     rom_bank0: [u8; ROM_BANK0_SIZE],
-    ram_bank0: [u8; RAM_BANK0_SIZE],
     mbc: Box<Mbc>
 }
 
@@ -31,8 +29,7 @@ impl Cartridge {
         let mbc = build_mbc(data[0x147]);
 
         Self {
-            data, path, rom_bank0, mbc,
-            ram_bank0: [0; RAM_BANK0_SIZE]
+            data, path, rom_bank0, mbc
         }
     }
 
@@ -87,9 +84,6 @@ impl MemoryMappedDevice for Cartridge {
             0xFF50 => {
                 self.clear_boot_rom();
             }
-            0xA000 ... 0xBFFF => {
-                self.ram_bank0[(addr as usize) - 0xA000] = byte;
-            }
             _ => { self.mbc.set8(addr, byte) }
         }
 
@@ -100,10 +94,7 @@ impl MemoryMappedDevice for Cartridge {
             0xFF50 => 0,
             0x0000 ... 0x3FFF => self.rom_bank0[addr as usize],
             0x4000 ... 0x7FFF => self.data[self.rom_bank1_start() + addr as usize - 0x4000],
-            0xA000 ... 0xBFFF => {
-                debug!("RAM BANK NO: {}", self.mbc.ram_bank_num());
-                self.ram_bank0[addr as usize - 0xA000]
-            }
+            0xA000 ... 0xBFFF => { self.mbc.get8(addr) }
             _ => { panic!("Can't read from Cartridge at 0x{:X}.", addr); }
         }
     }

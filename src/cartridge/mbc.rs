@@ -11,16 +11,20 @@ enum Mode {
 
 pub trait Mbc {
     fn rom_bank_num(&self) -> u8;
-    fn ram_bank_num(&self) -> u8;
+    fn get8(&self, addr: u16) -> u8;
     fn set8(&mut self, addr: u16, byte: u8);
     fn mbc_type(&self) -> MbcType;
 }
 
-struct RomOnly { }
+struct RomOnly {
+    ram_bank: [u8; 0x2000]
+}
 
 impl RomOnly {
     fn new() -> Self {
-        RomOnly { }
+        RomOnly {
+            ram_bank: [0; 0x2000]
+        }
     }
 }
 
@@ -29,11 +33,14 @@ impl Mbc for RomOnly {
         1
     }
 
-    fn ram_bank_num(&self) -> u8 {
-        0
+    fn set8(&mut self, addr: u16, _byte: u8) {
+        debug!("set8 {:x} in RomOnly", addr);
     }
 
-    fn set8(&mut self, _addr: u16, _byte: u8) { }
+    fn get8(&self, addr: u16) -> u8 {
+        debug!("get8 {:x} in RomOnly", addr);
+        self.ram_bank[addr as usize - 0xA000]
+    }
 
     fn mbc_type(&self) -> MbcType {
         MbcType::RomOnly
@@ -44,7 +51,8 @@ struct Mbc1 {
     five_bit_reg: u8,
     two_bit_reg: u8,
     ram_bank_enabled: bool,
-    mode: Mode
+    mode: Mode,
+    ram: Vec<u8>
 }
 
 impl Mbc1 {
@@ -53,7 +61,15 @@ impl Mbc1 {
             five_bit_reg: 0,
             two_bit_reg: 0,
             ram_bank_enabled: false,
-            mode: Mode::Rom
+            mode: Mode::Rom,
+            ram: vec![0; 0x8000]
+        }
+    }
+
+    fn ram_bank_offset(&self) -> usize {
+        match self.mode {
+            Mode::Rom => 0,
+            Mode::Ram => (self.two_bit_reg as usize) * 0x2000
         }
     }
 }
@@ -72,11 +88,8 @@ impl Mbc for Mbc1 {
         }
     }
 
-    fn ram_bank_num(&self) -> u8 {
-        match self.mode {
-            Mode::Rom => 0,
-            Mode::Ram => self.two_bit_reg
-        }
+    fn get8(&self, addr: u16) -> u8 {
+        self.ram[self.ram_bank_offset() + (addr as usize) - 0xA000]
     }
 
     fn set8(&mut self, addr: u16, byte: u8) {
@@ -97,6 +110,10 @@ impl Mbc for Mbc1 {
                     Mode::Ram
                 }
             }
+            0xA000 ... 0xBFFF => {
+                let offset = self.ram_bank_offset();
+                self.ram[offset + (addr as usize) - 0xA000] = byte;
+            }
             _ => panic!("Can't write to MBC1 at 0x{:X}: 0x{:X}", addr, byte)
         }
     }
@@ -106,10 +123,12 @@ impl Mbc for Mbc1 {
     }
 }
 
+
 pub fn build_mbc(byte: u8) -> Box<Mbc> {
     match byte {
         0 => Box::new(RomOnly::new()),
-        1 => Box::new(Mbc1::new()),
+        1...3 => Box::new(Mbc1::new()),
+//        0xF...0x13 => Box::new(Mbc3::new()),
         _ => panic!("Unsupported mbc type: {}", byte)
     }
 }
