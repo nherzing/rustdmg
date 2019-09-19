@@ -2,8 +2,6 @@ use crate::clocks::CLOCK_FREQ;
 use super::envelope::VolumeEnvelope;
 use super::length_counter::{LengthCounter, LengthCounterAction};
 
-const DIVISORS: [u32; 8] = [8, 16, 32, 48, 64, 80, 96, 112];
-
 #[derive(Debug)]
 pub struct Lfsr {
     bits: u16,
@@ -29,9 +27,9 @@ impl Lfsr {
             self.timer = self.frequency();
             let bit = (self.bits & 0x1) ^ ((self.bits >> 1) & 0x1);
             self.bits = if self.len == 7 {
-                (bit << 6) | ((self.bits >> 1) & 0x3F)
+                (bit << (7-1)) | ((self.bits >> 1) & 0x3FBF) // 0b011111110111111
             } else {
-                (bit << 14) | ((self.bits >> 1) & 0x3FFF)
+                (bit << (15-1)) | ((self.bits >> 1) & 0x3FFF)
             };
         } else {
             self.timer -= 1;
@@ -48,7 +46,10 @@ impl Lfsr {
     }
 
     fn frequency(&self) -> u16 {
-        ((CLOCK_FREQ / DIVISORS[self.divisor_code]) >> self.freq_shift) as u16
+        let c = 524288;
+        let d = if self.divisor_code == 0 { c * 2 } else { c / (self.divisor_code as u32) };
+        let hz = d >> (self.freq_shift + 1);
+        (CLOCK_FREQ / hz) as u16
     }
 }
 
