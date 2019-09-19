@@ -1,4 +1,4 @@
-use crate::renderer::{Color};
+use crate::gameboy::{Color};
 
 use Color::*;
 

@@ -1,76 +1,141 @@
 use std::{thread, time};
 use std::collections::VecDeque;
 use sdl2::pixels::{PixelFormatEnum, Color as PColor};
-use sdl2::render::{WindowCanvas, TextureCreator, Texture};
+use sdl2::render::{WindowCanvas, Texture};
 use sdl2::audio::AudioQueue;
-use sdl2::rect::Rect;
+use sdl2::EventPump;
+use sdl2::event::{Event, WindowEvent};
+use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
 use samplerate::{Samplerate, ConverterType};
-use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, SAMPLES_PER_FRAME, NS_PER_SAMPLE};
+use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, NS_PER_SAMPLE};
+use crate::cartridge::Cartridge;
+use crate::gameboy::{Gameboy, Color};
+use crate::joypad_controller::JoypadInput;
+
+pub const GAME_WIDTH: usize = 160;
+pub const GAME_HEIGHT: usize = 144;
 
 const WHITE: PColor = PColor { r: 114, g: 129, b: 77, a: 255 };
 const LIGHT_GRAY: PColor = PColor { r: 86, g: 107, b: 86, a: 255 };
 const DARK_GRAY: PColor = PColor { r: 66, g: 92, b: 83, a: 255 };
 const BLACK: PColor = PColor { r: 63, g: 82, b: 80, a: 255 };
 const OFF: PColor = PColor { r: 140, g: 128, b: 47, a: 255 };
-pub const GAME_WIDTH: usize = 160;
-pub const GAME_HEIGHT: usize = 144;
 
-#[derive(Copy, Clone, Debug)]
-pub enum Color {
-    White,
-    LightGray,
-    DarkGray,
-    Black,
-    Off
-}
+const SCANCODES: [Scancode; 8] = [
+    Scancode::W, Scancode::S, Scancode::A, Scancode::D,
+    Scancode::X, Scancode::Z, Scancode::L, Scancode::K
+];
 
-impl Color {
-    fn to_pcolor(&self) -> PColor {
-        match self {
-            Color::White => WHITE,
-            Color::LightGray => LIGHT_GRAY,
-            Color::DarkGray => DARK_GRAY,
-            Color::Black => BLACK,
-            Color::Off => OFF
-        }
+fn to_pcolor(color: Color) -> PColor {
+    match color {
+        Color::White => WHITE,
+        Color::LightGray => LIGHT_GRAY,
+        Color::DarkGray => DARK_GRAY,
+        Color::Black => BLACK,
+        Color::Off => OFF
     }
 }
 
-pub struct Renderer<'a> {
-    canvas: &'a mut WindowCanvas,
-    game_texture: Texture<'a>,
-    bg_tile_texture: Texture<'a>,
-    audio_data: Vec<f32>,
+fn scancode_to_joypad_input(scancode: &Scancode) -> JoypadInput {
+    match *scancode {
+        Scancode::W => JoypadInput::Up,
+        Scancode::S => JoypadInput::Down,
+        Scancode::A => JoypadInput::Left,
+        Scancode::D => JoypadInput::Right,
+        Scancode::X => JoypadInput::Start,
+        Scancode::Z => JoypadInput::Select,
+        Scancode::L => JoypadInput::A,
+        Scancode::K => JoypadInput::B,
+        _ => panic!("No mapping for key {:?}", scancode)
+    }
+}
+
+fn collect_pressed(keyboard_state: &KeyboardState) -> Vec<JoypadInput> {
+    SCANCODES.iter().filter(|sc| keyboard_state.is_scancode_pressed(**sc)).
+        map(|sc| scancode_to_joypad_input(sc)).
+        collect()
+}
+
+
+pub struct Renderer {
+    canvas: WindowCanvas,
     audio_converter: Samplerate,
-    audio_queue: &'a mut AudioQueue<f32>,
+    audio_queue: AudioQueue<f32>,
+    event_pump: EventPump,
     frame_buffer_queue: VecDeque<Vec<Color>>
 }
 
-impl<'a> Renderer<'a> {
-    pub fn new(canvas: &'a mut WindowCanvas, texture_creator: &'a TextureCreator<sdl2::video::WindowContext>, audio_queue: &'a mut AudioQueue<f32>) -> Self {
-        let game_texture = texture_creator.create_texture_streaming(
-            PixelFormatEnum::RGB24, GAME_WIDTH as u32, GAME_HEIGHT as u32
-        ).unwrap();
-        let bg_tile_texture = texture_creator.create_texture_streaming(
-            PixelFormatEnum::RGB24, 128, 128
-        ).unwrap();
-
-        let converter = Samplerate::new(ConverterType::SincMediumQuality, CLOCK_FREQ, AUDIO_SAMPLE_RATE, 2).unwrap();
+impl Renderer {
+    pub fn new(canvas: WindowCanvas, audio_queue: AudioQueue<f32>, event_pump: EventPump) -> Self {
+        let audio_converter = Samplerate::new(ConverterType::SincMediumQuality, CLOCK_FREQ, AUDIO_SAMPLE_RATE, 2).unwrap();
         Renderer {
-            canvas, game_texture, bg_tile_texture,
-            audio_converter: converter,
-            audio_data: Vec::new(),
+            canvas,
+            audio_converter,
             audio_queue,
-            frame_buffer_queue: VecDeque::new()
+            event_pump,
+            frame_buffer_queue: VecDeque::new(),
         }
     }
 
-    pub fn push_frame_buffer(&mut self, frame_buffer: &[Color]) {
-        self.flush_audio();
+    pub fn run(&mut self, cartridge: Cartridge, debug: bool, skip_boot_rom: bool) {
+        self.canvas.window_mut().set_size(GAME_WIDTH as u32 * 3, GAME_HEIGHT as u32 * 3).unwrap();
+
+        let texture_creator = self.canvas.texture_creator();
+        let mut game_texture = texture_creator.create_texture_streaming(
+            PixelFormatEnum::RGB24, GAME_WIDTH as u32, GAME_HEIGHT as u32
+        ).unwrap();
+
+        let mut frame_buffer = [Color::Off; GAME_WIDTH * GAME_HEIGHT];
+        let mut audio_data = Vec::with_capacity(40_000);
+
+        let mut gameboy = Gameboy::new(debug);
+        gameboy.boot(cartridge, skip_boot_rom);
+
+        let mut paused = false;
+        'running: loop {
+            let pressed = collect_pressed(&self.event_pump.keyboard_state());
+
+            if !paused {
+                gameboy.tick(&pressed, &mut frame_buffer, &mut audio_data);
+                self.flush_audio(&audio_data);
+                audio_data.clear();
+                self.push_frame_buffer(&frame_buffer, &mut game_texture);
+            } else {
+                thread::sleep(time::Duration::from_millis(10));
+            }
+
+            for event in self.event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. }
+                    | Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'running,
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Space),
+                        ..
+                    } => {
+                        paused = !paused;
+                    }
+                    Event::Window {
+                        win_event: WindowEvent::Resized(_, h),
+                        ..
+                    } => {
+                        let w = ((h as f32) * ((GAME_WIDTH as f32) / (GAME_HEIGHT as f32))) as u32;
+                        debug!("Resized to: {}, {}", w, h);
+                        self.canvas.window_mut().set_size(w, h as u32).unwrap();
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn push_frame_buffer(&mut self, frame_buffer: &[Color], texture: &mut Texture) {
         self.frame_buffer_queue.push_back(frame_buffer.to_owned());
         if self.frame_buffer_queue.len() >= 3|| self.until_draw().is_none() {
             self.wait_for_frame();
-            self.draw_frame();
+            self.draw_frame(texture);
         }
     }
 
@@ -98,17 +163,17 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn draw_frame(&mut self) {
+    pub fn draw_frame(&mut self, texture: &mut Texture) {
         match &self.frame_buffer_queue.pop_front() {
             None => {
                 debug!("No framebuffer ready!!!");
             }
             Some(frame_buffer) => {
-                self.game_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+                texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
                     for y in 0..GAME_HEIGHT {
                         for x in 0..GAME_WIDTH {
                             let offset = y*pitch + x*3;
-                            let color = frame_buffer[y * GAME_WIDTH + x].to_pcolor();
+                            let color = to_pcolor(frame_buffer[y * GAME_WIDTH + x]);
                             buffer[offset] = color.r;
                             buffer[offset + 1] = color.g;
                             buffer[offset + 2] = color.b;
@@ -116,48 +181,19 @@ impl<'a> Renderer<'a> {
                     }
                 }).unwrap();
 
-                let game_rect = Rect::new(0, 0, 2 * GAME_WIDTH as u32, 2 * GAME_HEIGHT as u32);
-                let bg_tile_rect = Rect::new(game_rect.width() as i32 + 50, 0, 128 * 2, 128 * 2);
-
                 self.canvas.clear();
-                self.canvas.copy(&self.game_texture, None, Some(game_rect)).unwrap();
-                self.canvas.copy(&self.bg_tile_texture, None, Some(bg_tile_rect)).unwrap();
+                self.canvas.copy(texture, None, None).unwrap();
                 self.canvas.present();
             }
         }
     }
 
-    pub fn queue_audio(&mut self, data: &[f32]) {
-        self.audio_data.extend_from_slice(data);
-    }
 
-    fn flush_audio(&mut self) {
+    fn flush_audio(&mut self, audio_data: &[f32]) {
         if self.audio_queue.size() < 100 {
             debug!("AUDIO QUEUE SIZE: {}", self.audio_queue.size());
         }
-        let samples_per_frame = SAMPLES_PER_FRAME as usize;
-        if self.audio_data.len() < samples_per_frame {
-            let v = *self.audio_data.last().unwrap();
-            for _ in 0..(samples_per_frame - self.audio_data.len()) {
-                self.audio_data.push(v);
-            }
-        }
-        let data = self.audio_converter.process(&self.audio_data[0..samples_per_frame]).unwrap();
+        let data = self.audio_converter.process(&audio_data).unwrap();
         self.audio_queue.queue(&data);
-        self.audio_data.clear();
-    }
-
-    pub fn update_bg_tile_texture(&mut self, frame_buffer: &[Color]) {
-        self.bg_tile_texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-            for y in 0..128 {
-                for x in 0..128 {
-                    let offset = y*pitch + x*3;
-                    let color = frame_buffer[y * 128 + x].to_pcolor();
-                    buffer[offset] = color.r;
-                    buffer[offset + 1] = color.g;
-                    buffer[offset + 2] = color.b;
-                }
-            }
-        }).unwrap();
     }
 }

@@ -7,20 +7,26 @@ use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::sound::SoundController;
 use crate::serial::SerialController;
-use crate::renderer::{Renderer, Color, GAME_WIDTH, GAME_HEIGHT};
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 
-pub struct Gameboy<'a> {
-    cpu: Cpu,
-    memory_map: MemoryMap,
-    device_manager: MemoryMappedDeviceManager,
-    renderer: Renderer<'a>,
-    frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT]
+#[derive(Copy, Clone, Debug)]
+pub enum Color {
+    White,
+    LightGray,
+    DarkGray,
+    Black,
+    Off
 }
 
-impl<'a> Gameboy<'a> {
-    pub fn new(renderer: Renderer<'a>, debug: bool) -> Self {
+pub struct Gameboy {
+    cpu: Cpu,
+    memory_map: MemoryMap,
+    device_manager: MemoryMappedDeviceManager
+}
+
+impl Gameboy {
+    pub fn new(debug: bool) -> Self {
         let mut cpu = Cpu::new();
         if debug { cpu.enable_debug(); }
 
@@ -36,9 +42,7 @@ impl<'a> Gameboy<'a> {
         Gameboy {
             cpu,
             memory_map: MemoryMap::new(),
-            device_manager,
-            renderer,
-            frame_buffer: [Color::Off; GAME_WIDTH * GAME_HEIGHT],
+            device_manager
         }
     }
 
@@ -50,9 +54,6 @@ impl<'a> Gameboy<'a> {
         }
 
         self.map_devices(cartridge);
-
-        let lcd_controller = self.device_manager.lcd_controller();
-        self.renderer.update_bg_tile_texture(lcd_controller.bg_tile_frame_buffer());
     }
 
     fn map_devices(&mut self, cartridge: Cartridge) {
@@ -69,7 +70,7 @@ impl<'a> Gameboy<'a> {
         self.memory_map.register(MemoryMappedDeviceId::Serial, &SerialController::mapped_areas());
     }
 
-    pub fn tick(&mut self, pressed_inputs: &[JoypadInput]) {
+    pub fn tick(&mut self, pressed_inputs: &[JoypadInput], mut frame_buffer: &mut [Color], mut audio_queue: &mut Vec<f32>) {
         let mut mb = MemoryBus::new(&self.memory_map, &mut self.device_manager);
 
         mb.devices().joypad_controller().set_pressed(pressed_inputs);
@@ -79,19 +80,15 @@ impl<'a> Gameboy<'a> {
             let mut interrupts = Vec::new();
             let mut fire_interrupt = |interrupt| interrupts.push(interrupt);
             mb.devices().timer().tick(clocks, &mut fire_interrupt);
-            mb.devices().lcd_controller().tick(clocks, &mut self.frame_buffer, &mut fire_interrupt);
+            mb.devices().lcd_controller().tick(clocks, &mut frame_buffer, &mut fire_interrupt);
             mb.devices().serial_controller().tick(clocks, &mut fire_interrupt);
-            let new_audio_data = mb.devices().sound_controller().tick(clocks);
-
-            self.renderer.queue_audio(&new_audio_data);
+            mb.devices().sound_controller().tick(clocks, &mut audio_queue);
 
             for interrupt in interrupts {
                 mb.devices().interrupt_controller().request(interrupt);
 
                 match interrupt {
                     Interrupt::VBlank => {
-                        self.renderer.push_frame_buffer(&self.frame_buffer);
-                        self.renderer.update_bg_tile_texture(mb.devices().lcd_controller().bg_tile_frame_buffer());
                         return
                     }
                     _ => {}

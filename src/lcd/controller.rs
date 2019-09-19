@@ -1,6 +1,7 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
-use crate::renderer::{Color, GAME_WIDTH};
+use crate::gameboy::Color;
+use crate::renderer::{GAME_WIDTH};
 use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
@@ -133,8 +134,7 @@ pub struct LcdController {
     bg_palette: Palette,
     ob0_palette: Palette,
     ob1_palette: Palette,
-    state: State,
-    bg_tile_frame_buffer: [Color; 128 * 128]
+    state: State
 }
 
 impl LcdController {
@@ -157,8 +157,7 @@ impl LcdController {
             bg_palette: Palette::new(0),
             ob0_palette: Palette::new(0),
             ob1_palette: Palette::new(0),
-            state: State::init(),
-            bg_tile_frame_buffer: [Color::Off; 128 * 128],
+            state: State::init()
         }
     }
 
@@ -168,11 +167,6 @@ impl LcdController {
             MappedArea(LCDC, (LYC - LCDC + 1) as usize),
             MappedArea(BGP, (WX - BGP + 1) as usize)
         ]
-    }
-
-    pub fn bg_tile_frame_buffer(&mut self) -> &[Color; 128 * 128] {
-        self.fill_tile_framebuffer();
-        &self.bg_tile_frame_buffer
     }
 
     pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) where
@@ -319,26 +313,6 @@ impl LcdController {
             frame_buffer[row_start + x] = color
         }
     }
-
-    fn fill_tile_framebuffer(&mut self) {
-        let mut bg_tile_frame_buffer =  [Color::Off; 128 * 128];
-        let bg_tile_set = self.bg_tile_set();
-
-        for i in 0usize..256 {
-            let tile = bg_tile_set.tile(i as u8);
-            let origin = (i / 16)*128*8 + (i % 16)*8;
-            for j in 0..8 {
-                let row = tile.row(j);
-                let row_start = origin + 128 * j;
-                for (k, p) in row.iter().enumerate() {
-                    let color = self.bg_palette.color(*p);
-                    bg_tile_frame_buffer[row_start + k] = color;
-                }
-            }
-        }
-
-        self.bg_tile_frame_buffer = bg_tile_frame_buffer;
-    }
 }
 
 impl MemoryMappedDevice for LcdController {
@@ -352,7 +326,6 @@ impl MemoryMappedDevice for LcdController {
             }
             LCDC => {
                 self.lcdc = byte;
-//                debug!("Set LCDC: {:08b}", byte);
             }
             STAT => {
                debug!("Set STAT: {:08b}", byte);
@@ -386,7 +359,6 @@ impl MemoryMappedDevice for LcdController {
                 self.wy = byte;
             }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
-
         }
 
     }

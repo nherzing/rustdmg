@@ -29,9 +29,6 @@ const NR51: u16 = 0xFF25;
 const NR52: u16 = 0xFF26;
 const WAVE_START: u16 = 0xFF30;
 const WAVE_END: u16 = 0xFF3F;
-const SILENT: u8 = 0;
-const HIGH: u8 = 1;
-const LOW: u8 = 0;
 
 pub struct SoundController {
     on: bool,
@@ -66,9 +63,12 @@ impl SoundController {
         ]
     }
 
-    pub fn tick(&mut self, clocks: u32) -> Vec::<f32> {
-        if !self.on { return vec![0.0, 0.0] }
-        let mut result = Vec::new();
+    pub fn tick(&mut self, clocks: u32, audio_queue: &mut Vec<f32>) {
+        if !self.on {
+            audio_queue.push(0.0);
+            audio_queue.push(0.0);
+            return
+        }
 
         for _ in 0..clocks {
             self.square_a.tick();
@@ -115,11 +115,9 @@ impl SoundController {
             l_sample *= l_volume as f32;
             r_sample *= r_volume as f32;
 
-            result.push(l_sample / 16.0);
-            result.push(r_sample / 16.0);
+            audio_queue.push(l_sample / 16.0);
+            audio_queue.push(r_sample / 16.0);
         }
-
-        result
     }
 }
 
@@ -209,13 +207,13 @@ impl MemoryMappedDevice for SoundController {
                     self.noise.restart();
                 }
             }
-            _ => {}
             _ => panic!("Invalid set address 0x{:X}: 0x{:X} mapped to Sound Controller", addr, byte)
         }
     }
 
     fn get8(&self, addr: u16) -> u8 {
         match addr {
+            _ => 0,
             _ => panic!("Invalid get address 0x{:X} mapped to Sound Controller", addr)
         }
     }
