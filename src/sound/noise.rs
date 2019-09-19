@@ -4,6 +4,7 @@ use super::length_counter::{LengthCounter, LengthCounterAction};
 
 const DIVISORS: [u32; 8] = [8, 16, 32, 48, 64, 80, 96, 112];
 
+#[derive(Debug)]
 pub struct Lfsr {
     bits: u16,
     freq_shift: u8,
@@ -15,7 +16,7 @@ pub struct Lfsr {
 impl Lfsr {
     pub fn new_from_byte(byte: u8) -> Self {
         Lfsr {
-            bits: 0xFFFF,
+            bits: 0x0000,
             freq_shift: (byte >> 4) & 0xF,
             len: if b3!(byte) == 0 { 15 } else { 7 },
             divisor_code: (byte & 0x7) as usize,
@@ -27,18 +28,22 @@ impl Lfsr {
         if self.timer == 0 {
             self.timer = self.frequency();
             let bit = (self.bits & 0x1) ^ ((self.bits >> 1) & 0x1);
-            self.bits = (bit << (self.len-1)) | (self.bits >> 1);
+            self.bits = if self.len == 7 {
+                (bit << 6) | ((self.bits >> 1) & 0x3F)
+            } else {
+                (bit << 14) | ((self.bits >> 1) & 0x3FFF)
+            };
         } else {
             self.timer -= 1;
         }
     }
 
     fn sample(&self) -> u8 {
-        (self.bits & 0x1) as u8
+        ((self.bits & 0x1) ^ 0x1) as u8
     }
 
     fn reset(&mut self) {
-        self.bits = 0xFFFF;
+        self.bits = 0x7FFF;
         self.timer = self.frequency();
     }
 
@@ -58,7 +63,7 @@ impl Noise {
     pub fn new() -> Self {
         Noise {
             playing: false,
-            lfsr: Lfsr::new_from_byte(0x00),
+            lfsr: Lfsr::new_from_byte(0xFF),
             volume_envelope: VolumeEnvelope::new_from_byte(0x00),
             length_counter: LengthCounter::new(64)
         }
