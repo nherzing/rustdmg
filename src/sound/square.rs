@@ -52,7 +52,8 @@ impl WaveGen {
 }
 
 pub struct SquareWave {
-    playing: bool,
+    dac_on: bool,
+    enabled: bool,
     sweep: Sweep,
     square_wave: WaveGen,
     volume_envelope: VolumeEnvelope,
@@ -62,7 +63,8 @@ pub struct SquareWave {
 impl SquareWave {
     pub fn new() -> Self {
         SquareWave {
-            playing: false,
+            dac_on: false,
+            enabled: false,
             sweep: Sweep::new_from_byte(0x80),
             square_wave: WaveGen::new(),
             volume_envelope: VolumeEnvelope::new_from_byte(0xF3),
@@ -70,15 +72,27 @@ impl SquareWave {
         }
     }
 
+    pub fn is_on(&self) -> bool {
+        self.dac_on && self.enabled
+    }
+
     pub fn tick(&mut self) {
-        if !self.playing {
+        match self.length_counter.tick() {
+            LengthCounterAction::Nop => {}
+            LengthCounterAction::Disable => {
+                self.enabled = false;
+                return
+            }
+        }
+
+        if !self.dac_on || !self.enabled {
             return
         }
 
         match self.sweep.tick() {
             SweepAction::Nop => {}
             SweepAction::Disable => {
-                self.playing = false;
+                self.enabled = false;
                 return
             }
             SweepAction::Update(frequency) => {
@@ -87,18 +101,11 @@ impl SquareWave {
             }
         }
         self.square_wave.tick();
-        match self.length_counter.tick() {
-            LengthCounterAction::Nop => {}
-            LengthCounterAction::Disable => {
-                self.playing = false;
-                return
-            }
-        }
         self.volume_envelope.tick();
     }
 
     pub fn sample(&self) -> u8 {
-        if self.playing {
+        if self.enabled {
             self.volume_envelope.apply(self.square_wave.sample())
         } else {
             0
@@ -131,16 +138,22 @@ impl SquareWave {
 
     pub fn set_volume_envelope(&mut self, volume_envelope: VolumeEnvelope) {
         self.volume_envelope = volume_envelope;
+        self.dac_on = self.volume_envelope.is_on();
+        if !self.dac_on {
+            self.enabled = false;
+        }
     }
 
     pub fn restart(&mut self) {
-        self.playing = true;
+        if self.dac_on {
+            self.enabled = true;
+        }
+        self.length_counter.trigger();
         match self.sweep.trigger(self.square_wave.frequency) {
             SweepAction::Disable => {
-                self.playing = false
+                self.enabled = false
             }
             _ => { }
         }
     }
-
 }

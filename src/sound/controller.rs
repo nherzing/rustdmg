@@ -30,7 +30,21 @@ const NR52: u16 = 0xFF26;
 const WAVE_START: u16 = 0xFF30;
 const WAVE_END: u16 = 0xFF3F;
 
+const REG_ORS: [u8; 48] = [
+    0x80, 0x3F, 0x00, 0xFF, 0xBF,
+    0xFF, 0x3F, 0x00, 0xFF, 0xBF,
+    0x7F, 0xFF, 0x9F, 0xFF, 0xBF,
+    0xFF, 0xFF, 0x00, 0x00, 0xBF,
+    0x00, 0x00, 0x70, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00
+];
+
 pub struct SoundController {
+    regs: [u8; 48],
     on: bool,
     square_a: SquareWave,
     square_b: SquareWave,
@@ -43,6 +57,7 @@ pub struct SoundController {
 impl SoundController {
     pub fn new() -> Self {
         SoundController {
+            regs: [0; 48],
             on: false,
             square_a: SquareWave::new(),
             square_b: SquareWave::new(),
@@ -53,13 +68,9 @@ impl SoundController {
         }
     }
 
-    pub fn mapped_areas() -> [MappedArea; 5] {
+    pub fn mapped_areas() -> [MappedArea; 1] {
         [
-            MappedArea(NR10, 5),
-            MappedArea(NR21, 4),
-            MappedArea(NR30, 5),
-            MappedArea(NR41, 7),
-            MappedArea(WAVE_START, 16)
+            MappedArea(NR10, 48)
         ]
     }
 
@@ -123,15 +134,24 @@ impl SoundController {
 
 impl MemoryMappedDevice for SoundController {
     fn set8(&mut self, addr: u16, byte: u8) {
+        if addr == NR52 {
+            if b7!(byte) == 0 {
+                for i in NR10..NR52 {
+                    self.set8(i, 0);
+                }
+            }
+            self.on = b7!(byte) == 1;
+            return
+        }
+        if !self.on { return }
+        debug!("SET {:X} => {:X}", addr, byte);
+        self.regs[(addr - NR10) as usize] = byte;
         match addr {
             NR50 => {
                 self.nr50 = byte;
             }
             NR51 => {
                 self.nr51 = byte;
-            }
-            NR52 => {
-                self.on = b7!(byte) == 1;
             }
             NR10 => {
                 self.square_a.set_sweep(Sweep::new_from_byte(byte));
@@ -171,7 +191,7 @@ impl MemoryMappedDevice for SoundController {
                 }
             }
             NR30 => {
-                self.wave.set_playing(b7!(byte) == 1);
+                self.wave.set_dac(b7!(byte) == 1);
             }
             NR31 => {
                 self.wave.set_length(byte);
@@ -207,13 +227,37 @@ impl MemoryMappedDevice for SoundController {
                     self.noise.restart();
                 }
             }
-            _ => panic!("Invalid set address 0x{:X}: 0x{:X} mapped to Sound Controller", addr, byte)
+            _ => {
+                debug!("Invalid set address 0x:{:X} mapped to Sound Controller", addr);
+            }
         }
     }
 
     fn get8(&self, addr: u16) -> u8 {
+        let offset = (addr - NR10) as usize;
         match addr {
-            _ => 0,
+            NR52 => {
+                let mut val = (if self.on { 1 << 7 } else { 0 }) | REG_ORS[offset];
+                if self.square_a.is_on() {
+                    val |= 0x1;
+                }
+                if self.square_b.is_on() {
+                    val |= 0x2;
+                }
+                if self.wave.is_on() {
+                    val |= 0x4;
+                }
+                if self.noise.is_on() {
+                    val |= 0x8;
+                }
+                debug!("GET NR52: on: {}, {:X}", self.on, val);
+                val
+            }
+            NR10 ... WAVE_END => {
+                let val = self.regs[offset] | REG_ORS[offset];
+                debug!("GET {:X} => {:X} ({:X})", addr, val, self.regs[offset]);
+                val
+            }
             _ => panic!("Invalid get address 0x{:X} mapped to Sound Controller", addr)
         }
     }

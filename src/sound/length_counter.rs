@@ -32,12 +32,10 @@ impl LengthCounter {
             self.ticks_left = CLOCK_FREQ / 256;
             self.length -= 1;
             if self.length == 0 {
-                self.enabled = false;
                 return Disable
             }
-        } else {
-            self.ticks_left -= 1;
         }
+        self.ticks_left -= 1;
         Nop
     }
 
@@ -48,5 +46,11 @@ impl LengthCounter {
 
     pub fn set_length(&mut self, length: u8) {
         self.length = self.max - (length as u16);
+    }
+
+    pub fn trigger(&mut self) {
+        if self.length == 0 {
+            self.length = self.max;
+        }
     }
 }

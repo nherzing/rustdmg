@@ -65,8 +65,8 @@ impl CustomWave {
 
 #[derive(Debug)]
 pub struct Wave {
+    dac_on: bool,
     enabled: bool,
-    playing: bool,
     custom_wave: CustomWave,
     volume: Volume,
     length_counter: LengthCounter,
@@ -76,8 +76,8 @@ pub struct Wave {
 impl Wave {
     pub fn new() -> Self {
         Wave {
+            dac_on: false,
             enabled:false,
-            playing: false,
             custom_wave: CustomWave::new(),
             volume: Mute,
             length_counter: LengthCounter::new(256),
@@ -85,22 +85,27 @@ impl Wave {
         }
     }
 
-    pub fn tick(&mut self) {
-        if !self.playing || !self.enabled {
-            return
-        }
+    pub fn is_on(&self) -> bool {
+        self.dac_on && self.enabled
+    }
 
-        self.custom_wave.tick();
+    pub fn tick(&mut self) {
         match self.length_counter.tick() {
             LengthCounterAction::Nop => {}
             LengthCounterAction::Disable => {
                 self.enabled = false;
             }
         }
+
+        if !self.dac_on || !self.enabled {
+            return
+        }
+
+        self.custom_wave.tick();
     }
 
     pub fn sample(&self) -> u8 {
-        if self.playing && self.enabled {
+        if self.enabled {
             let sample = self.custom_wave.sample();
             match self.volume {
                 Mute => 0,
@@ -113,8 +118,11 @@ impl Wave {
         }
     }
 
-    pub fn set_playing(&mut self, playing: bool) {
-        self.playing = playing;
+    pub fn set_dac(&mut self, dac_on: bool) {
+        self.dac_on = dac_on;
+        if !self.dac_on {
+            self.enabled = false;
+        }
     }
 
     pub fn set_volume(&mut self, volume_code: u8) {
@@ -142,7 +150,10 @@ impl Wave {
     }
 
     pub fn trigger(&mut self) {
-        self.enabled = true;
+        if self.dac_on {
+            self.enabled = true;
+        }
+        self.length_counter.trigger();
         self.custom_wave.reset();
     }
 }

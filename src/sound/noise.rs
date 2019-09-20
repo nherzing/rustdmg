@@ -54,7 +54,8 @@ impl Lfsr {
 }
 
 pub struct Noise {
-    playing: bool,
+    dac_on: bool,
+    enabled: bool,
     lfsr: Lfsr,
     volume_envelope: VolumeEnvelope,
     length_counter: LengthCounter
@@ -63,31 +64,38 @@ pub struct Noise {
 impl Noise {
     pub fn new() -> Self {
         Noise {
-            playing: false,
+            dac_on: false,
+            enabled: false,
             lfsr: Lfsr::new_from_byte(0xFF),
             volume_envelope: VolumeEnvelope::new_from_byte(0x00),
             length_counter: LengthCounter::new(64)
         }
     }
 
+    pub fn is_on(&self) -> bool {
+        self.dac_on && self.enabled
+    }
+
+
     pub fn tick(&mut self) {
-        if !self.playing {
+        match self.length_counter.tick() {
+            LengthCounterAction::Nop => {}
+            LengthCounterAction::Disable => {
+                self.enabled = false;
+                return
+            }
+        }
+
+        if !self.dac_on || !self.enabled {
             return
         }
 
         self.lfsr.tick();
-        match self.length_counter.tick() {
-            LengthCounterAction::Nop => {}
-            LengthCounterAction::Disable => {
-                self.playing = false;
-                return
-            }
-        }
         self.volume_envelope.tick();
     }
 
     pub fn sample(&self) -> u8 {
-        if self.playing {
+        if self.enabled {
             self.volume_envelope.apply(self.lfsr.sample())
         } else {
             0
@@ -108,10 +116,17 @@ impl Noise {
 
     pub fn set_volume_envelope(&mut self, volume_envelope: VolumeEnvelope) {
         self.volume_envelope = volume_envelope;
+        self.dac_on = self.volume_envelope.is_on();
+        if !self.dac_on {
+            self.enabled = false;
+        }
     }
 
     pub fn restart(&mut self) {
-        self.playing = true;
+        if self.dac_on {
+            self.enabled = true;
+        }
+        self.length_counter.trigger();
         self.lfsr.reset();
     }
 }

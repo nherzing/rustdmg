@@ -1,6 +1,6 @@
 use crate::clocks::CLOCK_FREQ;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Direction {
     Increase,
     Decrease
@@ -28,6 +28,10 @@ impl VolumeEnvelope {
             period,
             ticks_left: (period as u32) * CLOCK_FREQ / 64
         }
+    }
+
+    pub fn is_on(&self) -> bool {
+        !(self.volume == 0 && self.direction == Decrease)
     }
 
     pub fn tick(&mut self) {
