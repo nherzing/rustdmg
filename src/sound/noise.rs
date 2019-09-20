@@ -1,3 +1,4 @@
+use super::frame_sequencer::FrameSequencer;
 use crate::clocks::CLOCK_FREQ;
 use super::envelope::VolumeEnvelope;
 use super::length_counter::{LengthCounter, LengthCounterAction};
@@ -77,12 +78,14 @@ impl Noise {
     }
 
 
-    pub fn tick(&mut self) {
-        match self.length_counter.tick() {
-            LengthCounterAction::Nop => {}
-            LengthCounterAction::Disable => {
-                self.enabled = false;
-                return
+    pub fn tick(&mut self, fs: &FrameSequencer) {
+        if fs.is_length_counter() {
+            match self.length_counter.tick() {
+                LengthCounterAction::Nop => {}
+                LengthCounterAction::Disable => {
+                    self.enabled = false;
+                    return
+                }
             }
         }
 
@@ -110,8 +113,13 @@ impl Noise {
         self.length_counter.set_length(length);
     }
 
-    pub fn set_length_enabled(&mut self, enabled: bool) {
-        self.length_counter.set_enabled(enabled);
+    pub fn set_length_enabled(&mut self, enabled: bool, fs: &FrameSequencer) {
+        match self.length_counter.set_enabled(enabled, fs.next_is_length_counter()) {
+            LengthCounterAction::Nop => {}
+            LengthCounterAction::Disable => {
+                self.enabled = false;
+            }
+        }
     }
 
     pub fn set_volume_envelope(&mut self, volume_envelope: VolumeEnvelope) {

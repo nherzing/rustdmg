@@ -4,15 +4,21 @@
   - [X] wave channel
   - [ ] square waves getting out of sync in dr mario
   - [X] noise sounds different from gambette in dr mario
-  - [ ] gets
-  - [ ] tests
+  - [X] gets
+  - [-] tests
+    - [X] 01
+    - [X] 02
+    - [ ] 03
 - MBCs
-  - [ ] MBC5 (Pokemon)
-  - [ ] MBC3 (Zelda)
+  - [X] MBC3 (Pokemon)
+    - [X] rom/ram mapping
+    - [ ] rtc registers
+
 - Other stuff
   - [ ] frame dropping
   - [ ] cpu_instr: A is getting messed with on the multi-rom unless STOP is NOP.
 - OAM
   - [ ] 16x16 (nba jam?)
+- Super Mario World 2 crashes on pressing Start
 
 get by mbc: for d in *; do echo -n "$d "; xxd -p -l1 -s327 "$d"; done | grep 06$

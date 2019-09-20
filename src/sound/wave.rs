@@ -1,3 +1,4 @@
+use super::frame_sequencer::FrameSequencer;
 use super::length_counter::{LengthCounter, LengthCounterAction};
 
 #[derive(Clone, Copy, Debug)]
@@ -89,11 +90,13 @@ impl Wave {
         self.dac_on && self.enabled
     }
 
-    pub fn tick(&mut self) {
-        match self.length_counter.tick() {
-            LengthCounterAction::Nop => {}
-            LengthCounterAction::Disable => {
-                self.enabled = false;
+    pub fn tick(&mut self, fs: &FrameSequencer) {
+        if fs.is_length_counter() {
+            match self.length_counter.tick() {
+                LengthCounterAction::Nop => {}
+                LengthCounterAction::Disable => {
+                    self.enabled = false;
+                }
             }
         }
 
@@ -133,12 +136,18 @@ impl Wave {
         self.custom_wave.set_wave(offset, data);
     }
 
+
     pub fn set_length(&mut self, length: u8) {
         self.length_counter.set_length(length);
     }
 
-    pub fn set_length_enabled(&mut self, enabled: bool) {
-        self.length_counter.set_enabled(enabled);
+    pub fn set_length_enabled(&mut self, enabled: bool, fs: &FrameSequencer) {
+        match self.length_counter.set_enabled(enabled, fs.next_is_length_counter()) {
+            LengthCounterAction::Nop => {}
+            LengthCounterAction::Disable => {
+                self.enabled = false;
+            }
+        }
     }
 
     pub fn set_freq_lower(&mut self, data: u8) {

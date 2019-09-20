@@ -1,3 +1,4 @@
+mod frame_sequencer;
 mod envelope;
 mod sweep;
 mod length_counter;

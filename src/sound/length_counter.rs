@@ -1,5 +1,3 @@
-use crate::clocks::CLOCK_FREQ;
-
 pub enum LengthCounterAction {
     Disable,
     Nop
@@ -11,7 +9,6 @@ use LengthCounterAction::*;
 pub struct LengthCounter {
     enabled: bool,
     length: u16,
-    ticks_left: u32,
     max: u16
 }
 
@@ -20,7 +17,6 @@ impl LengthCounter {
         LengthCounter {
             enabled: false,
             length: 0,
-            ticks_left: 0,
             max
         }
     }
@@ -28,20 +24,23 @@ impl LengthCounter {
     pub fn tick(&mut self) -> LengthCounterAction {
         if !self.enabled || self.length == 0  { return Nop }
 
-        if self.ticks_left == 0 {
-            self.ticks_left = CLOCK_FREQ / 256;
+        debug!("LC: {} (pre dec)", self.length);
+        self.length -= 1;
+        if self.length == 0 {
+            return Disable
+        }
+        Nop
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool, next_is_length_counter: bool) -> LengthCounterAction {
+        if !self.enabled && enabled && self.length > 0 && !next_is_length_counter {
             self.length -= 1;
             if self.length == 0 {
                 return Disable
             }
         }
-        self.ticks_left -= 1;
-        Nop
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
-        self.ticks_left = CLOCK_FREQ / 256;
+        Nop
     }
 
     pub fn set_length(&mut self, length: u8) {

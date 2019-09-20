@@ -1,5 +1,6 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
+use super::frame_sequencer::{FrameSequencer};
 use super::square::{SquareWave};
 use super::wave::{Wave};
 use super::sweep::{Sweep};
@@ -51,7 +52,8 @@ pub struct SoundController {
     wave: Wave,
     noise: Noise,
     nr50: u8,
-    nr51: u8
+    nr51: u8,
+    frame_sequencer: FrameSequencer
 }
 
 impl SoundController {
@@ -64,7 +66,8 @@ impl SoundController {
             wave: Wave::new(),
             noise: Noise::new(),
             nr50: 0,
-            nr51: 0
+            nr51: 0,
+            frame_sequencer: FrameSequencer::new()
         }
     }
 
@@ -82,10 +85,11 @@ impl SoundController {
         }
 
         for _ in 0..clocks {
-            self.square_a.tick();
-            self.square_b.tick();
-            self.wave.tick();
-            self.noise.tick();
+            self.frame_sequencer.tick();
+            self.square_a.tick(&self.frame_sequencer);
+            self.square_b.tick(&self.frame_sequencer);
+            self.wave.tick(&self.frame_sequencer);
+            self.noise.tick(&self.frame_sequencer);
             let mut l_sample = 0.0;
             let mut r_sample = 0.0;
 
@@ -168,7 +172,7 @@ impl MemoryMappedDevice for SoundController {
             }
             NR14 => {
                 self.square_a.set_freq_upper(byte & 0x7);
-                self.square_a.set_length_enabled(b6!(byte) == 1);
+                self.square_a.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
                     self.square_a.restart();
                 }
@@ -185,7 +189,7 @@ impl MemoryMappedDevice for SoundController {
             }
             NR24 => {
                 self.square_b.set_freq_upper(byte & 0x7);
-                self.square_b.set_length_enabled(b6!(byte) == 1);
+                self.square_b.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
                     self.square_b.restart();
                 }
@@ -204,7 +208,7 @@ impl MemoryMappedDevice for SoundController {
             }
             NR34 => {
                 self.wave.set_freq_upper(byte & 0x7);
-                self.wave.set_length_enabled(b6!(byte) == 1);
+                self.wave.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
                     self.wave.trigger();
                 }
@@ -222,7 +226,7 @@ impl MemoryMappedDevice for SoundController {
                 self.noise.set_lsrf(Lfsr::new_from_byte(byte));
             }
             NR44 => {
-                self.noise.set_length_enabled(b6!(byte) == 1);
+                self.noise.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
                     self.noise.restart();
                 }
