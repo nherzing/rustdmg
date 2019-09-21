@@ -19,7 +19,6 @@ impl FrameSequencer {
         if self.ticks_left == 0 {
             self.ticks_left = CLOCK_FREQ / 512;
             self.clock = Some(self.step);
-            debug!("CLOCK: {}", self.step);
             self.step = (self.step + 1) % 8;
         } else {
             self.clock = None;

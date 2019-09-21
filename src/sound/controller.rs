@@ -148,7 +148,6 @@ impl MemoryMappedDevice for SoundController {
             return
         }
         if !self.on { return }
-        debug!("SET {:X} => {:X}", addr, byte);
         self.regs[(addr - NR10) as usize] = byte;
         match addr {
             NR50 => {
@@ -257,12 +256,10 @@ impl MemoryMappedDevice for SoundController {
                 if self.noise.is_on() {
                     val |= 0x8;
                 }
-                debug!("GET NR52: on: {}, {:X}", self.on, val);
                 val
             }
             NR10 ... WAVE_END => {
                 let val = self.regs[offset] | REG_ORS[offset];
-                debug!("GET {:X} => {:X} ({:X})", addr, val, self.regs[offset]);
                 val
             }
             _ => panic!("Invalid get address 0x{:X} mapped to Sound Controller", addr)

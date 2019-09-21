@@ -23,6 +23,7 @@
   - [ ] cpu_instr: A is getting messed with on the multi-rom unless STOP is NOP.
 - OAM
   - [X] 16x16 (nba jam, donkey kong, kirby's dream land 2)
+  - [ ] Donkey Kong flashing on boot
   - [ ] nba jam sprites are off
 - Crashes
   - Super Mario World 2

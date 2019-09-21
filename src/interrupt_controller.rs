@@ -98,7 +98,6 @@ impl MemoryMappedDevice for InterruptController {
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
             IE => {
-                debug!("IE: {:08b}", byte);
                 self.ie_reg = byte;
             }
             IF => { self.if_reg = byte }
