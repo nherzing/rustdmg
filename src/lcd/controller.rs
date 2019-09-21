@@ -5,7 +5,7 @@ use crate::renderer::{GAME_WIDTH};
 use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
-use super::oam::{OamEntries, OamPixel, PaletteNumber};
+use super::oam::{OamEntries, OamPixel, PaletteNumber, SpriteSize};
 use crate::interrupt_controller::Interrupt;
 
 pub const VRAM_START: u16 = 0x8000;
@@ -276,13 +276,21 @@ impl LcdController {
         result
     }
 
+    fn sprite_size(&self) -> SpriteSize {
+        if b2!(self.lcdc) == 0 {
+            SpriteSize::EightByEight
+        } else {
+            SpriteSize::EightBySixteen
+        }
+    }
+
     fn oam_row(&self) -> [Option<OamPixel>; GAME_WIDTH] {
         if !self.oam_enabled() {
             return [None; GAME_WIDTH];
         }
 
         let oam_tile_set = TileSet::new(&self.vram[0x0..0x1000], false);
-        let oam_entries = OamEntries::new(&self.oam, &oam_tile_set);
+        let oam_entries = OamEntries::new(&self.oam, &oam_tile_set, self.sprite_size());
         oam_entries.row(self.ly)
     }
 

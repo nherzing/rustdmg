@@ -9,16 +9,21 @@
     - [X] 01
     - [X] 02
     - [ ] 03
+  - other
+    - [ ] Pokemon startup screen
 - MBCs
-  - [X] MBC3 (Pokemon)
+  - [ ] MBC2 (Kirby's Pinball)
+  - [-] MBC3 (Pokemon)
     - [X] rom/ram mapping
     - [ ] rtc registers
+  - [ ] MBC5
 
 - Other stuff
   - [ ] frame dropping
   - [ ] cpu_instr: A is getting messed with on the multi-rom unless STOP is NOP.
 - OAM
-  - [ ] 16x16 (nba jam?)
-- Super Mario World 2 crashes on pressing Start
+  - [X] 16x16 (nba jam, donkey kong, kirby's dream land 2)
+- Crashes
+  - Super Mario World 2
 
 get by mbc: for d in *; do echo -n "$d "; xxd -p -l1 -s327 "$d"; done | grep 06$
