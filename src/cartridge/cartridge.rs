@@ -78,6 +78,12 @@ impl Cartridge {
     }
 }
 
+impl Clone for Cartridge {
+    fn clone(&self) -> Self {
+        Cartridge::new(self.path.clone())
+    }
+}
+
 impl MemoryMappedDevice for Cartridge {
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {

@@ -89,7 +89,7 @@ impl Renderer {
         let mut audio_data = Vec::with_capacity(40_000);
 
         let mut gameboy = Gameboy::new(debug);
-        gameboy.boot(cartridge, skip_boot_rom);
+        gameboy.boot(cartridge.clone(), skip_boot_rom);
 
         let mut paused = false;
         'running: loop {
@@ -116,6 +116,13 @@ impl Renderer {
                         ..
                     } => {
                         paused = !paused;
+                    },
+                    Event::KeyDown {
+                        keycode: Some(Keycode::R),
+                        ..
+                    } => {
+                        gameboy = Gameboy::new(debug);
+                        gameboy.boot(cartridge.clone(), skip_boot_rom);
                     }
                     Event::Window {
                         win_event: WindowEvent::Resized(_, h),
