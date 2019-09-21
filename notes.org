@@ -2,7 +2,7 @@
   - [X] length counter
   - [X] sweep
   - [X] wave channel
-  - [ ] square waves getting out of sync in dr mario
+  - [X] square waves getting out of sync in dr mario
   - [X] noise sounds different from gambette in dr mario
   - [X] gets
   - [-] tests
