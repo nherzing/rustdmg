@@ -91,15 +91,17 @@ impl SquareWave {
             return
         }
 
-        match self.sweep.tick() {
-            SweepAction::Nop => {}
-            SweepAction::Disable => {
-                self.enabled = false;
-                return
-            }
-            SweepAction::Update(frequency) => {
-                self.square_wave.set_freq_lower(frequency as u8);
-                self.square_wave.set_freq_upper((frequency >> 8) as u8 & 0x7);
+        if fs.is_sweep() {
+            match self.sweep.tick() {
+                SweepAction::Nop => {}
+                SweepAction::Disable => {
+                    self.enabled = false;
+                    return
+                }
+                SweepAction::Update(frequency) => {
+                    self.square_wave.set_freq_lower(frequency as u8);
+                    self.square_wave.set_freq_upper((frequency >> 8) as u8 & 0x7);
+                }
             }
         }
         self.square_wave.tick();

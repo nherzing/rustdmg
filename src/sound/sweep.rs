@@ -14,7 +14,7 @@ pub struct Sweep {
     direction: Direction,
     shift: u8,
     frequency: u16,
-    ticks_left: u32
+    periods_left: u8
 }
 
 impl Sweep {
@@ -25,15 +25,15 @@ impl Sweep {
             direction:  if b3!(byte) == 0 { Direction::Increase } else { Direction::Decrease },
             shift: byte & 0x7,
             frequency: 0,
-            ticks_left: 0
+            periods_left: 0
         }
     }
 
     pub fn tick(&mut self) -> SweepAction {
         if !self.enabled || self.sweep_period == 0 { return SweepAction::Nop }
 
-        if self.ticks_left == 0 {
-            self.ticks_left = (CLOCK_FREQ / 128) * (self.sweep_period as u32);
+        if self.periods_left == 0 {
+            self.periods_left = self.sweep_period;
             match self.new_frequency() {
                 None => {
                     SweepAction::Disable
@@ -48,14 +48,14 @@ impl Sweep {
                 }
             }
         } else {
-            self.ticks_left -= 1;
+            self.periods_left -= 1;
             SweepAction::Nop
         }
     }
 
     pub fn trigger(&mut self, frequency: u16) -> SweepAction {
         self.frequency = frequency;
-        self.ticks_left = (CLOCK_FREQ / 128) * (self.sweep_period as u32);
+        self.periods_left = self.sweep_period;
         self.enabled = self.sweep_period != 0 || self.shift != 0;
         if self.enabled {
             match self.new_frequency() {

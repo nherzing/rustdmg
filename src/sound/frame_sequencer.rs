@@ -31,6 +31,10 @@ impl FrameSequencer {
         self.clock.map_or(false, |v| v % 2 == 0)
     }
 
+    pub fn is_sweep(&self) -> bool {
+        self.clock.map_or(false, |v| v == 2 || v == 6)
+    }
+
     pub fn next_is_length_counter(&self) -> bool {
         self.step % 2 == 0
     }
