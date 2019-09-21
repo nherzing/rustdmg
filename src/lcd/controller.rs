@@ -229,6 +229,10 @@ impl LcdController {
         b1!(self.lcdc) == 1
     }
 
+    fn display_enabled(&self) -> bool {
+        b7!(self.lcdc) == 1
+    }
+
     fn map_data(&self, flag: u8) -> &[u8] {
         if flag == 1 {
             &self.vram[TILE_MAP_1_OFFSET..TILE_MAP_1_OFFSET+TILE_MAP_SIZE]
@@ -295,6 +299,13 @@ impl LcdController {
     }
 
     fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
+        if !self.display_enabled() {
+            for pixel in frame_buffer {
+                *pixel = Color::Off
+            }
+            return
+        }
+
         let bg_row = self.bg_row();
         let window_row = self.window_row();
         let oam_row = self.oam_row();
