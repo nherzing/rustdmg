@@ -121,6 +121,7 @@ impl Renderer {
                         keycode: Some(Keycode::R),
                         ..
                     } => {
+                        paused = false;
                         gameboy = Gameboy::new(debug);
                         gameboy.boot(cartridge.clone(), skip_boot_rom);
                     }
