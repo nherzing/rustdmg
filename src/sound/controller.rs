@@ -171,11 +171,12 @@ impl MemoryMappedDevice for SoundController {
                 self.square_a.set_freq_lower(byte);
             }
             NR14 => {
+                if b7!(byte) == 1 {
+                    self.square_a.trigger(b6!(byte) == 1);
+                }
+
                 self.square_a.set_freq_upper(byte & 0x7);
                 self.square_a.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
-                if b7!(byte) == 1 {
-                    self.square_a.restart();
-                }
             }
             NR21 => {
                 self.square_b.set_duty(byte >> 6);
@@ -188,12 +189,12 @@ impl MemoryMappedDevice for SoundController {
                 self.square_b.set_freq_lower(byte);
             }
             NR24 => {
-                self.square_b.set_freq_upper(byte & 0x7);
-                self.square_b.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
-                    self.square_b.restart();
+                    self.square_b.trigger(false);
                 }
-            }
+
+                self.square_b.set_freq_upper(byte & 0x7);
+                self.square_b.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);            }
             NR30 => {
                 self.wave.set_dac(b7!(byte) == 1);
             }
@@ -207,11 +208,12 @@ impl MemoryMappedDevice for SoundController {
                 self.wave.set_freq_lower(byte);
             }
             NR34 => {
+                if b7!(byte) == 1 {
+                    self.wave.trigger(false);
+                }
+
                 self.wave.set_freq_upper(byte & 0x7);
                 self.wave.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
-                if b7!(byte) == 1 {
-                    self.wave.trigger();
-                }
             }
             WAVE_START ... WAVE_END => {
                 self.wave.set_wave((addr - WAVE_START) as u8, byte);
@@ -226,10 +228,11 @@ impl MemoryMappedDevice for SoundController {
                 self.noise.set_lsrf(Lfsr::new_from_byte(byte));
             }
             NR44 => {
-                self.noise.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
                 if b7!(byte) == 1 {
-                    self.noise.restart();
+                    self.noise.trigger(false);
                 }
+
+                self.noise.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
             }
             _ => {
                 debug!("Invalid set address 0x:{:X} mapped to Sound Controller", addr);

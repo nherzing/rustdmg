@@ -33,9 +33,12 @@ impl LengthCounter {
     }
 
     pub fn set_enabled(&mut self, enabled: bool, next_is_length_counter: bool) -> LengthCounterAction {
+        debug!("SET ENABLED: was: {}, tobe: {}, len: {}", self.enabled, enabled, self.length);
         if !self.enabled && enabled && self.length > 0 && !next_is_length_counter {
             self.length -= 1;
+            self.enabled = enabled;
             if self.length == 0 {
+                self.enabled = false;
                 return Disable
             }
         }
@@ -45,11 +48,17 @@ impl LengthCounter {
 
     pub fn set_length(&mut self, length: u8) {
         self.length = self.max - (length as u16);
+        debug!("SET LENGTH: {}", self.length);
     }
 
-    pub fn trigger(&mut self) {
+    pub fn trigger(&mut self, will_enable: bool) {
         if self.length == 0 {
             self.length = self.max;
+            if will_enable && !self.enabled {
+                self.enabled = true;
+                self.length -= 1;
+            }
+            debug!("RESET LENGTH TO {}, {}", self.max, self.length);
         }
     }
 }

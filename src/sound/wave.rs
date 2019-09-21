@@ -158,11 +158,11 @@ impl Wave {
         self.custom_wave.set_freq_upper(data);
     }
 
-    pub fn trigger(&mut self) {
+    pub fn trigger(&mut self, will_enable: bool) {
         if self.dac_on {
             self.enabled = true;
         }
-        self.length_counter.trigger();
+        self.length_counter.trigger(will_enable);
         self.custom_wave.reset();
     }
 }

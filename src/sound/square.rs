@@ -151,11 +151,11 @@ impl SquareWave {
         }
     }
 
-    pub fn restart(&mut self) {
+    pub fn trigger(&mut self, will_enable: bool) {
         if self.dac_on {
             self.enabled = true;
         }
-        self.length_counter.trigger();
+        self.length_counter.trigger(will_enable);
         match self.sweep.trigger(self.square_wave.frequency) {
             SweepAction::Disable => {
                 self.enabled = false
