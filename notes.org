@@ -24,7 +24,7 @@
 - OAM
   - [X] 16x16 (nba jam, donkey kong, kirby's dream land 2)
   - [ ] Donkey Kong flashing on boot
-  - [ ] nba jam sprites are off
+  - [ ] nba jam, no ball
 - Crashes
   - Super Mario World 2
 

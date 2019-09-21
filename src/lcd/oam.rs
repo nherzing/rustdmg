@@ -50,7 +50,7 @@ impl OamEntry {
     fn row(&self, ly: u8, tile_set: &TileSet) -> [u8; 8] {
         let mut tile_y = (ly + 16 - self.y) as usize;
         if self.y_flip {
-            tile_y = 7 - tile_y;
+            tile_y = (self.height as usize) - 1 - tile_y;
         }
         let mut tile_row = if tile_y < 8 {
             tile_set.tile(self.tile_num).row(tile_y)
