@@ -1,4 +1,3 @@
-use crate::clocks::CLOCK_FREQ;
 use super::envelope::{Direction};
 
 pub enum SweepAction {
