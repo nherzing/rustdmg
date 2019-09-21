@@ -396,7 +396,7 @@ impl Cpu {
                 debug!("STOP not implemented");
             }
             INVALID(b) => {
-                panic!("Invalid opcode: {:x?}", b)
+                panic!("Invalid opcode: {:X}: {:X?}", self.registers.pc(), b)
             }
         }
 
