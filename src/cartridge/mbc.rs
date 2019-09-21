@@ -210,6 +210,6 @@ pub fn build_mbc(byte: u8) -> Box<Mbc> {
         0 => Box::new(RomOnly::new()),
         1...3 => Box::new(Mbc1::new()),
         0xF...0x13 => Box::new(Mbc3::new()),
-        _ => panic!("Unsupported mbc type: {}", byte)
+        _ => panic!("Unsupported mbc type: {:X}", byte)
     }
 }
