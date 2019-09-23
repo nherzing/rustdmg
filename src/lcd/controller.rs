@@ -130,7 +130,6 @@ pub struct LcdController {
     obp1: u8,
     wy: u8,
     wx: u8,
-    clocks_since_render: u32,
     bg_palette: Palette,
     ob0_palette: Palette,
     ob1_palette: Palette,
@@ -142,7 +141,7 @@ impl LcdController {
         LcdController {
             vram: [0; VRAM_SIZE],
             oam: [0; OAM_SIZE],
-            lcdc: 0,
+            lcdc: 0x91,
             stat: 0,
             scy: 0,
             scx: 0,
@@ -153,7 +152,6 @@ impl LcdController {
             obp1: 0,
             wy: 0,
             wx: 0,
-            clocks_since_render: 0,
             bg_palette: Palette::new(0),
             ob0_palette: Palette::new(0),
             ob1_palette: Palette::new(0),
@@ -170,8 +168,10 @@ impl LcdController {
     }
 
     pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) where
-    F: FnMut(Interrupt) {
-        self.clocks_since_render += clocks;
+        F: FnMut(Interrupt) {
+        if !self.display_enabled() {
+            return
+        }
 
         let orig_period = self.state.period;
         let mut clocks_left = clocks;
@@ -403,7 +403,6 @@ impl MemoryMappedDevice for LcdController {
             WY => self.wy,
             WX => self.wx,
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
-
         }
     }
 }

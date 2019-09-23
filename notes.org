@@ -24,8 +24,9 @@
 - OAM
   - [X] 16x16 (nba jam, donkey kong, kirby's dream land 2)
   - [ ] Donkey Kong flashing on boot
-  - [ ] nba jam, no ball
+  - [X] nba jam, no ball
+- Window
+  - [ ] nba jam, window on/off. should pick up where it left off
 - Crashes
-  - Super Mario World 2
 
 get by mbc: for d in *; do echo -n "$d "; xxd -p -l1 -s327 "$d"; done | grep 06$
