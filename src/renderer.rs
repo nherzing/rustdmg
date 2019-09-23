@@ -1,5 +1,4 @@
 use std::{thread, time};
-use std::collections::VecDeque;
 use sdl2::pixels::{PixelFormatEnum, Color as PColor};
 use sdl2::render::{WindowCanvas, Texture};
 use sdl2::audio::AudioQueue;
@@ -16,13 +15,13 @@ use crate::joypad_controller::JoypadInput;
 pub const GAME_WIDTH: usize = 160;
 pub const GAME_HEIGHT: usize = 144;
 
-const UGLY_GREENS_PALETTE: [PColor; 5] = [
-    PColor { r: 114, g: 129, b: 77, a: 255 },
-    PColor { r: 86, g: 107, b: 86, a: 255 },
-    PColor { r: 66, g: 92, b: 83, a: 255 },
-    PColor { r: 63, g: 82, b: 80, a: 255 },
-    PColor { r: 140, g: 128, b: 47, a: 255 }
-];
+// const UGLY_GREENS_PALETTE: [PColor; 5] = [
+//     PColor { r: 114, g: 129, b: 77, a: 255 },
+//     PColor { r: 86, g: 107, b: 86, a: 255 },
+//     PColor { r: 66, g: 92, b: 83, a: 255 },
+//     PColor { r: 63, g: 82, b: 80, a: 255 },
+//     PColor { r: 140, g: 128, b: 47, a: 255 }
+// ];
 const BW_PALETTE: [PColor; 5] = [
     PColor { r: 255, g: 255, b: 255, a: 255 },
     PColor { r: 170, g: 170, b: 170, a: 255 },
@@ -72,7 +71,7 @@ pub struct Renderer {
     audio_converter: Samplerate,
     audio_queue: AudioQueue<f32>,
     event_pump: EventPump,
-    frame_buffer_queue: VecDeque<Vec<Color>>,
+    frame_buffer: [Color; GAME_WIDTH * GAME_HEIGHT],
     bg_tile_map_frame_buffer: [Color; 128 * 192]
 }
 
@@ -84,7 +83,7 @@ impl Renderer {
             audio_converter,
             audio_queue,
             event_pump,
-            frame_buffer_queue: VecDeque::new(),
+            frame_buffer: [Color::Off; GAME_WIDTH * GAME_HEIGHT],
             bg_tile_map_frame_buffer: [Color::Off; 128 * 192]
         }
     }
@@ -100,7 +99,6 @@ impl Renderer {
             PixelFormatEnum::RGB24, 256, 256
         ).unwrap();
 
-        let mut frame_buffer = [Color::Off; GAME_WIDTH * GAME_HEIGHT];
         let mut audio_data = Vec::with_capacity(40_000);
 
         let mut gameboy = Gameboy::new(debug);
@@ -111,11 +109,13 @@ impl Renderer {
             let pressed = collect_pressed(&self.event_pump.keyboard_state());
 
             if !paused {
-                gameboy.tick(&pressed, &mut frame_buffer, &mut audio_data);
+                gameboy.tick(&pressed, &mut self.frame_buffer, &mut audio_data);
                 self.flush_audio(&audio_data);
                 audio_data.clear();
                 gameboy.fill_tile_framebuffer(&mut self.bg_tile_map_frame_buffer);
-                self.push_frame_buffer(&frame_buffer, &mut game_texture, &mut bg_tile_map_texture);
+
+                self.wait_for_frame();
+                self.draw_frame(&mut game_texture, &mut bg_tile_map_texture);
             } else {
                 thread::sleep(time::Duration::from_millis(10));
             }
@@ -155,18 +155,10 @@ impl Renderer {
         }
     }
 
-    pub fn push_frame_buffer(&mut self, frame_buffer: &[Color], texture: &mut Texture, bg_tile_map_texture: &mut Texture) {
-        self.frame_buffer_queue.push_back(frame_buffer.to_owned());
-        if self.frame_buffer_queue.len() >= 3|| self.until_draw().is_none() {
-            self.wait_for_frame();
-            self.draw_frame(texture, bg_tile_map_texture);
-        }
-    }
-
     fn until_draw(&self) -> Option<time::Duration> {
         let buffered_samples = (self.audio_queue.size() / 2 / 4) as u64;
         let ns_buffered = buffered_samples * NS_PER_SAMPLE;
-        let ns_want = NS_PER_SCREEN_REFRESH * (self.frame_buffer_queue.len() as u64 - 1);
+        let ns_want = NS_PER_SCREEN_REFRESH * 3 / 2;
         time::Duration::from_nanos(ns_buffered).checked_sub(time::Duration::from_nanos(ns_want))
     }
 
@@ -174,10 +166,6 @@ impl Renderer {
         match self.until_draw() {
             None => {
                 debug!("Dropping frame...");
-                self.frame_buffer_queue.pop_front();
-                if !self.frame_buffer_queue.is_empty() {
-                    self.wait_for_frame();
-                }
             }
             Some(d) => {
                 if d.as_nanos() > NS_PER_SCREEN_REFRESH as u128 {
@@ -187,34 +175,27 @@ impl Renderer {
         }
     }
 
-    pub fn draw_frame(&mut self, texture: &mut Texture, bg_tile_map_texture: &mut Texture) {
-        match &self.frame_buffer_queue.pop_front() {
-            None => {
-                debug!("No framebuffer ready!!!");
+    fn draw_frame(&mut self, texture: &mut Texture, bg_tile_map_texture: &mut Texture) {
+        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            for y in 0..GAME_HEIGHT {
+                for x in 0..GAME_WIDTH {
+                    let offset = y*pitch + x*3;
+                    let color = to_pcolor(self.frame_buffer[y * GAME_WIDTH + x]);
+                    buffer[offset] = color.r;
+                    buffer[offset + 1] = color.g;
+                    buffer[offset + 2] = color.b;
+                }
             }
-            Some(frame_buffer) => {
-                texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-                    for y in 0..GAME_HEIGHT {
-                        for x in 0..GAME_WIDTH {
-                            let offset = y*pitch + x*3;
-                            let color = to_pcolor(frame_buffer[y * GAME_WIDTH + x]);
-                            buffer[offset] = color.r;
-                            buffer[offset + 1] = color.g;
-                            buffer[offset + 2] = color.b;
-                        }
-                    }
-                }).unwrap();
-                self.update_bg_tile_map_texture(bg_tile_map_texture);
+        }).unwrap();
+        self.update_bg_tile_map_texture(bg_tile_map_texture);
 
-                let game_rect = Rect::new(0, 0, 2 * GAME_WIDTH as u32, 2 * GAME_HEIGHT as u32);
-                let bg_tile_rect = Rect::new(game_rect.width() as i32 + 50, 0, 128 * 4, 192 * 4);
+        let game_rect = Rect::new(0, 0, 2 * GAME_WIDTH as u32, 2 * GAME_HEIGHT as u32);
+        let bg_tile_rect = Rect::new(game_rect.width() as i32 + 50, 0, 128 * 4, 192 * 4);
 
-                self.canvas.clear();
-                self.canvas.copy(texture, None, game_rect).unwrap();
-                self.canvas.copy(bg_tile_map_texture, None, bg_tile_rect).unwrap();
-                self.canvas.present();
-            }
-        }
+        self.canvas.clear();
+        self.canvas.copy(texture, None, game_rect).unwrap();
+        self.canvas.copy(bg_tile_map_texture, None, bg_tile_rect).unwrap();
+        self.canvas.present();
     }
 
     pub fn update_bg_tile_map_texture(&mut self, texture: &mut Texture) {

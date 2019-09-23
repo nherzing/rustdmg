@@ -242,14 +242,6 @@ impl LcdController {
         b7!(self.lcdc) == 1
     }
 
-    fn map_data(&self, flag: u8) -> &[u8] {
-        if flag == 1 {
-            &self.vram[TILE_MAP_1_OFFSET..TILE_MAP_1_OFFSET+TILE_MAP_SIZE]
-        } else {
-            &self.vram[TILE_MAP_0_OFFSET..TILE_MAP_0_OFFSET+TILE_MAP_SIZE]
-        }
-    }
-
     fn bg_row(&self) -> [u8; GAME_WIDTH] {
         let bg_map = self.bg_map(b3!(self.lcdc));
 
