@@ -16,11 +16,20 @@ use crate::joypad_controller::JoypadInput;
 pub const GAME_WIDTH: usize = 160;
 pub const GAME_HEIGHT: usize = 144;
 
-const WHITE: PColor = PColor { r: 114, g: 129, b: 77, a: 255 };
-const LIGHT_GRAY: PColor = PColor { r: 86, g: 107, b: 86, a: 255 };
-const DARK_GRAY: PColor = PColor { r: 66, g: 92, b: 83, a: 255 };
-const BLACK: PColor = PColor { r: 63, g: 82, b: 80, a: 255 };
-const OFF: PColor = PColor { r: 140, g: 128, b: 47, a: 255 };
+const UGLY_GREENS_PALETTE: [PColor; 5] = [
+    PColor { r: 114, g: 129, b: 77, a: 255 },
+    PColor { r: 86, g: 107, b: 86, a: 255 },
+    PColor { r: 66, g: 92, b: 83, a: 255 },
+    PColor { r: 63, g: 82, b: 80, a: 255 },
+    PColor { r: 140, g: 128, b: 47, a: 255 }
+];
+const BW_PALETTE: [PColor; 5] = [
+    PColor { r: 255, g: 255, b: 255, a: 255 },
+    PColor { r: 170, g: 170, b: 170, a: 255 },
+    PColor { r: 85, g: 85, b: 85, a: 255 },
+    PColor { r: 0, g: 0, b: 0, a: 255 },
+    PColor { r: 0, g: 0, b: 0, a: 255 }
+];
 
 const SCANCODES: [Scancode; 8] = [
     Scancode::W, Scancode::S, Scancode::A, Scancode::D,
@@ -28,13 +37,13 @@ const SCANCODES: [Scancode; 8] = [
 ];
 
 fn to_pcolor(color: Color) -> PColor {
-    match color {
-        Color::White => WHITE,
-        Color::LightGray => LIGHT_GRAY,
-        Color::DarkGray => DARK_GRAY,
-        Color::Black => BLACK,
-        Color::Off => OFF
-    }
+    BW_PALETTE[match color {
+        Color::White => 0,
+        Color::LightGray => 1,
+        Color::DarkGray => 2,
+        Color::Black => 3,
+        Color::Off => 4
+    }]
 }
 
 fn scancode_to_joypad_input(scancode: &Scancode) -> JoypadInput {
