@@ -85,18 +85,20 @@ impl<'a> OamEntries<'a> {
     pub fn row(&self, ly: u8) -> [Option<OamPixel>; GAME_WIDTH] {
         let mut result = [None; GAME_WIDTH];
 
-        let visible_entries = self.entries.iter().filter(|e| e.is_on_row(ly)).take(10);
+        let visible_entries = self.entries.iter()
+            .filter(|e| e.is_on_row(ly))
+            .take(10);
         for entry in visible_entries {
             let tile_row = entry.row(ly, self.tile_set);
             let right_edge_x = entry.x as usize;
             let left_edge_x = (right_edge_x as i16) - 8;
-            for idx in 0usize..8 {
-                if left_edge_x + (idx as i16) < 0 { continue }
-                if left_edge_x as usize + idx >= GAME_WIDTH { break }
-                if tile_row[idx] == 0 { continue }
-                if result[left_edge_x as usize + idx].is_none() {
-                    result[left_edge_x as usize + idx] = Some(OamPixel {
-                        value: tile_row[idx],
+            for idx in 0i16..8 {
+                if left_edge_x + idx < 0 { continue }
+                if left_edge_x + idx >= GAME_WIDTH as i16 { break }
+                if tile_row[idx as usize] == 0 { continue }
+                if result[(left_edge_x + idx) as usize].is_none() {
+                    result[(left_edge_x + idx) as usize] = Some(OamPixel {
+                        value: tile_row[idx as usize],
                         above_background: entry.above_background,
                         palette_number: entry.palette_number
                     });
