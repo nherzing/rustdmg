@@ -221,6 +221,15 @@ impl LcdController {
         }
     }
 
+    fn bg_map(&self, flag: u8) -> BackgroundMap {
+        let tile_set = self.bg_tile_set();
+        if flag == 1 {
+            BackgroundMap::new(&self.vram[TILE_MAP_1_OFFSET..TILE_MAP_1_OFFSET+TILE_MAP_SIZE], tile_set)
+        } else {
+            BackgroundMap::new(&self.vram[TILE_MAP_0_OFFSET..TILE_MAP_0_OFFSET+TILE_MAP_SIZE], tile_set)
+        }
+    }
+
     fn window_enabled(&self) -> bool {
         b5!(self.lcdc) == 1
     }
@@ -242,9 +251,7 @@ impl LcdController {
     }
 
     fn bg_row(&self) -> [u8; GAME_WIDTH] {
-        let bg_tile_set = self.bg_tile_set();
-        let bg_map_data = self.map_data(b3!(self.lcdc));
-        let bg_map = BackgroundMap::new(bg_map_data, &bg_tile_set);
+        let bg_map = self.bg_map(b3!(self.lcdc));
 
         let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
 
@@ -259,14 +266,11 @@ impl LcdController {
     fn window_row(&self) -> [Option<u8>; GAME_WIDTH] {
         if !self.window_enabled() ||
             self.wx as usize >= GAME_WIDTH + 7 ||
-            self.ly < self.wy
-        {
+            self.ly < self.wy {
             return [None; GAME_WIDTH];
         }
 
-        let tile_set = self.bg_tile_set();
-        let map_data = self.map_data(b6!(self.lcdc));
-        let map = BackgroundMap::new(map_data, &tile_set);
+        let map = self.bg_map(b6!(self.lcdc));
         let row = map.row((self.ly - self.wy) as usize);
 
         let mut result = [None; GAME_WIDTH];
@@ -330,6 +334,23 @@ impl LcdController {
                 }
             };
             frame_buffer[row_start + x] = color
+        }
+    }
+
+    pub fn fill_tile_framebuffer(&self, tile_frame_buffer: &mut [Color]) {
+        let bg_tile_set = self.bg_tile_set();
+
+        for i in 0usize..256 {
+            let tile = bg_tile_set.tile(i as u8);
+            let origin = (i / 16)*128*8 + (i % 16)*8;
+            for j in 0..8 {
+                let row = tile.row(j);
+                let row_start = origin + 128 * j;
+                for (k, p) in row.iter().enumerate() {
+                    let color = self.bg_palette.color(*p);
+                    tile_frame_buffer[row_start + k] = color;
+                }
+            }
         }
     }
 }

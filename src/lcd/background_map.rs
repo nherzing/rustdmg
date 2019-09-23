@@ -2,11 +2,11 @@ use super::tiles::TileSet;
 
 pub struct BackgroundMap<'a> {
     data: &'a [u8],
-    tile_set: &'a TileSet<'a>
+    tile_set: TileSet<'a>
 }
 
 impl<'a> BackgroundMap<'a> {
-    pub fn new(data: &'a [u8], tile_set: &'a TileSet) -> BackgroundMap<'a> {
+    pub fn new(data: &'a [u8], tile_set: TileSet<'a>) -> BackgroundMap<'a> {
         BackgroundMap { data, tile_set }
     }
 

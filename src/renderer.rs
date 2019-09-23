@@ -6,6 +6,7 @@ use sdl2::audio::AudioQueue;
 use sdl2::EventPump;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::{KeyboardState, Scancode, Keycode};
+use sdl2::rect::Rect;
 use samplerate::{Samplerate, ConverterType};
 use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, NS_PER_SAMPLE};
 use crate::cartridge::Cartridge;
@@ -62,7 +63,8 @@ pub struct Renderer {
     audio_converter: Samplerate,
     audio_queue: AudioQueue<f32>,
     event_pump: EventPump,
-    frame_buffer_queue: VecDeque<Vec<Color>>
+    frame_buffer_queue: VecDeque<Vec<Color>>,
+    bg_tile_map_frame_buffer: [Color; 128 * 192]
 }
 
 impl Renderer {
@@ -74,15 +76,19 @@ impl Renderer {
             audio_queue,
             event_pump,
             frame_buffer_queue: VecDeque::new(),
+            bg_tile_map_frame_buffer: [Color::Off; 128 * 192]
         }
     }
 
     pub fn run(&mut self, cartridge: Cartridge, debug: bool, skip_boot_rom: bool) {
-        self.canvas.window_mut().set_size(GAME_WIDTH as u32 * 3, GAME_HEIGHT as u32 * 3).unwrap();
+        self.canvas.window_mut().set_size(GAME_WIDTH as u32 * 4, GAME_HEIGHT as u32 * 4).unwrap();
 
         let texture_creator = self.canvas.texture_creator();
         let mut game_texture = texture_creator.create_texture_streaming(
             PixelFormatEnum::RGB24, GAME_WIDTH as u32, GAME_HEIGHT as u32
+        ).unwrap();
+        let mut bg_tile_map_texture = texture_creator.create_texture_streaming(
+            PixelFormatEnum::RGB24, 256, 256
         ).unwrap();
 
         let mut frame_buffer = [Color::Off; GAME_WIDTH * GAME_HEIGHT];
@@ -99,7 +105,8 @@ impl Renderer {
                 gameboy.tick(&pressed, &mut frame_buffer, &mut audio_data);
                 self.flush_audio(&audio_data);
                 audio_data.clear();
-                self.push_frame_buffer(&frame_buffer, &mut game_texture);
+                gameboy.fill_tile_framebuffer(&mut self.bg_tile_map_frame_buffer);
+                self.push_frame_buffer(&frame_buffer, &mut game_texture, &mut bg_tile_map_texture);
             } else {
                 thread::sleep(time::Duration::from_millis(10));
             }
@@ -139,11 +146,11 @@ impl Renderer {
         }
     }
 
-    pub fn push_frame_buffer(&mut self, frame_buffer: &[Color], texture: &mut Texture) {
+    pub fn push_frame_buffer(&mut self, frame_buffer: &[Color], texture: &mut Texture, bg_tile_map_texture: &mut Texture) {
         self.frame_buffer_queue.push_back(frame_buffer.to_owned());
         if self.frame_buffer_queue.len() >= 3|| self.until_draw().is_none() {
             self.wait_for_frame();
-            self.draw_frame(texture);
+            self.draw_frame(texture, bg_tile_map_texture);
         }
     }
 
@@ -171,7 +178,7 @@ impl Renderer {
         }
     }
 
-    pub fn draw_frame(&mut self, texture: &mut Texture) {
+    pub fn draw_frame(&mut self, texture: &mut Texture, bg_tile_map_texture: &mut Texture) {
         match &self.frame_buffer_queue.pop_front() {
             None => {
                 debug!("No framebuffer ready!!!");
@@ -188,12 +195,31 @@ impl Renderer {
                         }
                     }
                 }).unwrap();
+                self.update_bg_tile_map_texture(bg_tile_map_texture);
+
+                let game_rect = Rect::new(0, 0, 2 * GAME_WIDTH as u32, 2 * GAME_HEIGHT as u32);
+                let bg_tile_rect = Rect::new(game_rect.width() as i32 + 50, 0, 128 * 4, 192 * 4);
 
                 self.canvas.clear();
-                self.canvas.copy(texture, None, None).unwrap();
+                self.canvas.copy(texture, None, game_rect).unwrap();
+                self.canvas.copy(bg_tile_map_texture, None, bg_tile_rect).unwrap();
                 self.canvas.present();
             }
         }
+    }
+
+    pub fn update_bg_tile_map_texture(&mut self, texture: &mut Texture) {
+        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            for y in 0..192 {
+                for x in 0..128 {
+                    let offset = y*pitch + x*3;
+                    let color = to_pcolor(self.bg_tile_map_frame_buffer[y * 128 + x]);
+                    buffer[offset] = color.r;
+                    buffer[offset + 1] = color.g;
+                    buffer[offset + 2] = color.b;
+                }
+            }
+        }).unwrap();
     }
 
 

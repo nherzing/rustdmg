@@ -96,4 +96,8 @@ impl Gameboy {
             }
         }
     }
+
+    pub fn fill_tile_framebuffer(&mut self, frame_buffer: &mut [Color]) {
+        self.device_manager.lcd_controller().fill_tile_framebuffer(frame_buffer);
+    }
 }
