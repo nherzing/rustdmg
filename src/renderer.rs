@@ -77,7 +77,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(canvas: WindowCanvas, audio_queue: AudioQueue<f32>, event_pump: EventPump) -> Self {
-        let audio_converter = Samplerate::new(ConverterType::SincMediumQuality, CLOCK_FREQ, AUDIO_SAMPLE_RATE, 2).unwrap();
+        let audio_converter = Samplerate::new(ConverterType::SincFastest, CLOCK_FREQ, AUDIO_SAMPLE_RATE, 2).unwrap();
         Renderer {
             canvas,
             audio_converter,

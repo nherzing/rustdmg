@@ -3,7 +3,6 @@ use crate::memory::memory_map::{MappedArea};
 use super::frame_sequencer::{FrameSequencer};
 use super::square::{SquareWave};
 use super::wave::{Wave};
-use super::sweep::{Sweep};
 use super::noise::{Noise, Lfsr};
 use super::envelope::VolumeEnvelope;
 
