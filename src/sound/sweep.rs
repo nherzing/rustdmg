@@ -17,29 +17,45 @@ pub struct Sweep {
 }
 
 impl Sweep {
-    pub fn new_from_byte(byte: u8) -> Self {
+    pub fn new() -> Self {
         Sweep {
             enabled: false,
-            sweep_period: (byte >> 4) & 0x7,
-            direction:  if b3!(byte) == 0 { Direction::Increase } else { Direction::Decrease },
-            shift: byte & 0x7,
+            sweep_period: 0,
+            direction: Direction::Increase,
+            shift: 0,
             frequency: 0,
             periods_left: 0
         }
     }
 
+    pub fn update(&mut self, byte: u8) {
+        self.sweep_period = (byte >> 4) & 0x7;
+        self.direction = if b3!(byte) == 0 { Direction::Increase } else { Direction::Decrease };
+        self.shift = byte & 0x7;
+    }
+
     pub fn tick(&mut self) -> SweepAction {
+        debug!("TICK SWEEP MIGHT {:?}", self);
+        if self.periods_left == 0 {
+            self.periods_left = self.sweep_period;
+        }
+
         if !self.enabled || self.sweep_period == 0 { return SweepAction::Nop }
 
+        debug!("TICK SWEEP");
+        self.periods_left -= 1;
         if self.periods_left == 0 {
             self.periods_left = self.sweep_period;
             match self.new_frequency() {
                 None => {
                     SweepAction::Disable
-
                 }
                 Some(f) => {
-                    self.frequency = f;
+                    if self.shift != 0 {
+                        self.frequency = f;
+                    }
+                    debug!("SWEEP: {} -> {:?}", self.frequency, self.new_frequency());
+
                     match self.new_frequency() {
                         None => SweepAction::Disable,
                         Some(_) => SweepAction::Update(self.frequency)
@@ -47,7 +63,6 @@ impl Sweep {
                 }
             }
         } else {
-            self.periods_left -= 1;
             SweepAction::Nop
         }
     }
@@ -56,10 +71,13 @@ impl Sweep {
         self.frequency = frequency;
         self.periods_left = self.sweep_period;
         self.enabled = self.sweep_period != 0 || self.shift != 0;
-        if self.enabled {
+        debug!("TRIGGER SWEEP: {:?}", self);
+        if self.shift != 0 {
             match self.new_frequency() {
                 None => SweepAction::Disable,
-                Some(_) => SweepAction::Nop
+                Some(_) => {
+                    SweepAction::Update(self.frequency)
+                }
             }
         } else {
             SweepAction::Nop

@@ -157,7 +157,7 @@ impl MemoryMappedDevice for SoundController {
                 self.nr51 = byte;
             }
             NR10 => {
-                self.square_a.set_sweep(Sweep::new_from_byte(byte));
+                self.square_a.update_sweep(byte);
             }
             NR11 => {
                 self.square_a.set_duty(byte >> 6);
@@ -170,11 +170,10 @@ impl MemoryMappedDevice for SoundController {
                 self.square_a.set_freq_lower(byte);
             }
             NR14 => {
+                self.square_a.set_freq_upper(byte & 0x7);
                 if b7!(byte) == 1 {
                     self.square_a.trigger(b6!(byte) == 1);
                 }
-
-                self.square_a.set_freq_upper(byte & 0x7);
                 self.square_a.set_length_enabled(b6!(byte) == 1, &self.frame_sequencer);
             }
             NR21 => {

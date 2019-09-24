@@ -63,10 +63,12 @@ pub struct SquareWave {
 
 impl SquareWave {
     pub fn new() -> Self {
+        let mut sweep = Sweep::new();
+        sweep.update(0x80);
         SquareWave {
             dac_on: false,
             enabled: false,
-            sweep: Sweep::new_from_byte(0x80),
+            sweep,
             square_wave: WaveGen::new(),
             volume_envelope: VolumeEnvelope::new_from_byte(0xF3),
             length_counter: LengthCounter::new(64)
@@ -116,8 +118,8 @@ impl SquareWave {
         }
     }
 
-    pub fn set_sweep(&mut self, sweep: Sweep) {
-        self.sweep = sweep;
+    pub fn update_sweep(&mut self, byte: u8) {
+        self.sweep.update(byte);
     }
 
     pub fn set_length(&mut self, length: u8) {
