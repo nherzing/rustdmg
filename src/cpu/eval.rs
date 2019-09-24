@@ -309,7 +309,7 @@ impl Cpu {
                     let r = if offset >= 0 {
                         self.registers.get16(PC) + (offset as u16)
                     } else {
-                        self.registers.get16(PC) - (offset*-1) as u16
+                        self.registers.get16(PC) - ((offset as i16) * -1) as u16
                     };
                     self.registers.set16(PC, r);
                 } else {
