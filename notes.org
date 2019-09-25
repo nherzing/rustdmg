@@ -9,8 +9,11 @@
     - [X] 01
     - [X] 02
     - [ ] 03
+    - [X] 04
+    - [ ] 05
+    - [X] 06
   - other
-    - [ ] Pokemon startup screen
+    - [X] Pokemon startup screen
 - MBCs
   - [ ] MBC2 (Kirby's Pinball)
   - [-] MBC3 (Pokemon)
@@ -29,5 +32,15 @@
   - [ ] nba jam, window on/off. should pick up where it left off
 - Crashes
   - Super Mario World 2, entering first level
+  - Donkey Kong Land 3, first level, follow banana arrow down into water
+    - rom access out of bounds
 
 get by mbc: for d in *; do echo -n "$d "; xxd -p -l1 -s327 "$d"; done | grep 06$
+
+
+tick: 1.6ms
+flush audio: 2.0ms
+fill_file_framebuffer: 53us
+draw: 1.8ms
+  - 300us per filling texture
+  - 1-5ms for present

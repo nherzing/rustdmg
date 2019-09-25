@@ -34,7 +34,7 @@ use Register::*;
 
 impl Registers {
     pub fn new() -> Registers {
-        Default::default()
+        Registers { sp: 0xFFFE, ..Default::default() }
     }
 
     pub fn get8(&self, r: Register) -> u8 {
