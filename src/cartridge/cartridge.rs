@@ -58,7 +58,7 @@ impl Cartridge {
     }
 
     fn rom_bank1_start(&self) -> usize {
-        self.mbc.rom_bank_num() as usize * 0x4000
+        (self.mbc.rom_bank_num() as usize * 0x4000) % self.data.len()
     }
 
     fn title(&self) -> &str {
