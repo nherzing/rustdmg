@@ -72,28 +72,29 @@ impl Gameboy {
 
     pub fn tick(&mut self, pressed_inputs: &[JoypadInput], mut frame_buffer: &mut [Color], mut audio_queue: &mut Vec<f32>) {
         let mut mb = MemoryBus::new(&self.memory_map, &mut self.device_manager);
+        let mut interrupts = Vec::with_capacity(10);
 
         mb.devices().joypad_controller().set_pressed(pressed_inputs);
         loop {
             let clocks = self.cpu.step(&mut mb);
 
-            let mut interrupts = Vec::new();
             let mut fire_interrupt = |interrupt| interrupts.push(interrupt);
             mb.devices().timer().tick(clocks, &mut fire_interrupt);
             mb.devices().lcd_controller().tick(clocks, &mut frame_buffer, &mut fire_interrupt);
             mb.devices().serial_controller().tick(clocks, &mut fire_interrupt);
             mb.devices().sound_controller().tick(clocks, &mut audio_queue);
 
-            for interrupt in interrupts {
-                mb.devices().interrupt_controller().request(interrupt);
+            for interrupt in &interrupts {
+                mb.devices().interrupt_controller().request(*interrupt);
 
-                match interrupt {
+                match *interrupt {
                     Interrupt::VBlank => {
                         return
                     }
                     _ => {}
                 }
             }
+            interrupts.clear();
         }
     }
 
