@@ -79,7 +79,7 @@ impl Mbc for Mbc1 {
     fn rom_bank_num(&self) -> u8 {
         match self.mode {
             Mode::Rom => {
-                let n = (self.two_bit_reg << 6) | self.five_bit_reg;
+                let n = (self.two_bit_reg << 5) | self.five_bit_reg;
                 match n {
                     0x00 | 0x20 | 0x40 | 0x60 => n + 1,
                     _ => n
