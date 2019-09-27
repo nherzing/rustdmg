@@ -28,6 +28,7 @@ const WX: u16 = 0xFF4B;
 
 const STAT_RO_MASK: u8 = 0b111;
 const STAT_RW_MASK: u8 = 0b01111000;
+const STAT_MASK: u8 = 0b10000000;
 
 const TILE_MAP_0_START: usize = 0x9800;
 const TILE_MAP_0_OFFSET: usize = TILE_MAP_0_START - (VRAM_START as usize);
@@ -357,7 +358,12 @@ impl MemoryMappedDevice for LcdController {
                 self.oam[(addr - OAM_START) as usize] = byte;
             }
             LCDC => {
+                let display_was_enabled = self.display_enabled();
                 self.lcdc = byte;
+                if display_was_enabled && !self.display_enabled() {
+                    self.ly = 0;
+                    self.state = State::init();
+                }
             }
             STAT => {
                debug!("Set STAT: {:08b}", byte);
@@ -402,7 +408,11 @@ impl MemoryMappedDevice for LcdController {
              }
             LCDC => self.lcdc,
             STAT => {
-                self.stat
+                if self.display_enabled() {
+                    self.stat | STAT_MASK
+                } else {
+                    STAT_MASK
+                }
             }
             LY => {
                 self.ly
