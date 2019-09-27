@@ -1,4 +1,4 @@
-use crate::renderer::{GAME_WIDTH};
+use crate::gameboy::{GAME_WIDTH};
 use super::tiles::{TileSet};
 
 #[derive(Clone, Copy)]

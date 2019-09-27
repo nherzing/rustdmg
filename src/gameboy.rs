@@ -2,13 +2,16 @@ use crate::memory::memory_bus::MemoryBus;
 use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDeviceManager, MemoryMappedDeviceId};
 use crate::ram_device::RamDevice;
 use crate::interrupt_controller::{Interrupt, InterruptController};
-use crate::joypad_controller::{JoypadController, JoypadInput};
+use crate::joypad_controller::{JoypadController};
 use crate::timer_controller::TimerController;
 use crate::lcd::LcdController;
 use crate::sound::SoundController;
 use crate::serial::SerialController;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
+
+pub const GAME_WIDTH: usize = 160;
+pub const GAME_HEIGHT: usize = 144;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Color {
@@ -17,6 +20,18 @@ pub enum Color {
     DarkGray,
     Black,
     Off
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum JoypadInput {
+    Up,
+    Down,
+    Left,
+    Right,
+    Start,
+    Select,
+    A,
+    B
 }
 
 pub struct Gameboy {

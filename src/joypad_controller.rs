@@ -1,19 +1,8 @@
+use crate::gameboy::JoypadInput;
 use crate::memory::memory_map::MemoryMappedDevice;
 use crate::memory::memory_map::MappedArea;
 
 const P1: u16 = 0xFF00;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum JoypadInput {
-    Up,
-    Down,
-    Left,
-    Right,
-    Start,
-    Select,
-    A,
-    B
-}
 
 use JoypadInput::*;
 

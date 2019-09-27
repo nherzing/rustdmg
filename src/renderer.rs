@@ -9,11 +9,7 @@ use sdl2::rect::Rect;
 use samplerate::{Samplerate, ConverterType};
 use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, NS_PER_SAMPLE};
 use crate::cartridge::Cartridge;
-use crate::gameboy::{Gameboy, Color};
-use crate::joypad_controller::JoypadInput;
-
-pub const GAME_WIDTH: usize = 160;
-pub const GAME_HEIGHT: usize = 144;
+use crate::gameboy::{Gameboy, Color, JoypadInput, GAME_WIDTH, GAME_HEIGHT};
 
 // const UGLY_GREENS_PALETTE: [PColor; 5] = [
 //     PColor { r: 114, g: 129, b: 77, a: 255 },

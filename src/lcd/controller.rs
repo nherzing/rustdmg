@@ -1,7 +1,7 @@
 use crate::memory::memory_map::{MemoryMappedDevice};
 use crate::memory::memory_map::{MappedArea};
 use crate::gameboy::Color;
-use crate::renderer::{GAME_WIDTH};
+use crate::gameboy::{GAME_WIDTH};
 use super::tiles::TileSet;
 use super::palette::Palette;
 use super::background_map::BackgroundMap;
