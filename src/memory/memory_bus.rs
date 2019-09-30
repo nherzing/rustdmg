@@ -1,5 +1,8 @@
 use super::memory_map::{MemoryMap, MemoryMappedDeviceManager, MemoryMappedDevice};
 
+const DMA: u16 = 0xFF46;
+const HDMA5: u16 = 0xFF55;
+
 pub struct MemoryBus<'a> {
     memory_map: &'a MemoryMap,
     devices: &'a mut MemoryMappedDeviceManager
@@ -24,13 +27,22 @@ impl<'a> MemoryBus<'a> {
 
     pub fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
-            0xFF46 => {
+            DMA => {
                 let source = (byte as u16) << 8;
                 let mut data = [0; 0xA0];
                 for i in 0..0xA0 {
                     data[i] = self.get8(source + i as u16);
                 }
                 self.devices.lcd_controller().dma(&data);
+            }
+            HDMA5 => {
+                let len = (((byte & 0x7F) as usize) + 1) * 0x10;
+                let source = self.devices.lcd_controller().vram_dma_source();
+                let mut data = Vec::with_capacity(len as usize);
+                for i in 0..len {
+                    data.push(self.get8(source + i as u16));
+                }
+                self.devices.lcd_controller().vram_dma(&data);
             }
             _ => {
                 self.get_device(addr).set8(addr, byte);

@@ -156,7 +156,9 @@ pub struct LcdController {
     bg_palette_manager: PaletteManager,
     ob_palette_manager: PaletteManager,
     state: State,
-    mode: Mode
+    mode: Mode,
+    vram_dma_src: u16,
+    vram_dma_dst: u16
 }
 
 impl LcdController {
@@ -183,7 +185,9 @@ impl LcdController {
             bg_palette_manager: PaletteManager::new(),
             ob_palette_manager: PaletteManager::new(),
             state: State::init(),
-            mode: Mode::CGB
+            mode: Mode::CGB,
+            vram_dma_src: 0,
+            vram_dma_dst: 0
         }
     }
 
@@ -246,6 +250,13 @@ impl LcdController {
 
     pub fn dma(&mut self, data: &[u8]) {
         self.oam.copy_from_slice(data);
+    }
+
+    pub fn vram_dma(&mut self, data: &[u8]) {
+        let offset = self.vram_dma_dst as usize;
+        for (i, d) in data.iter().enumerate() {
+            self.vram_mut()[offset + i] = *d;
+        }
     }
 
     fn vram(&self) -> &[u8] {
@@ -399,6 +410,11 @@ impl LcdController {
         }
     }
 
+    pub fn vram_dma_source(&self) -> u16 {
+        self.vram_dma_src
+    }
+
+
     pub fn fill_tile_framebuffer(&self, tile_frame_buffer: &mut [Color]) {
         let (bg_tile_set, _) = self.bg_tile_sets();
 
@@ -480,9 +496,20 @@ impl MemoryMappedDevice for LcdController {
             WY => {
                 self.wy = byte;
             }
+            HDMA1 => {
+                self.vram_dma_src = ((byte as u16) << 8) | (self.vram_dma_src & 0xF0)
+            }
+            HDMA2 => {
+                self.vram_dma_src = (self.vram_dma_src & 0xFF00) | ((byte as u16) & 0xF0)
+            }
+            HDMA3 => {
+                self.vram_dma_dst = (((byte as u16) << 8) & 0x1F00) | (self.vram_dma_dst & 0xF0)
+            }
+            HDMA4 => {
+                self.vram_dma_dst = (self.vram_dma_dst & 0x1F00) | ((byte as u16) & 0xF0)
+            }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
         }
-
     }
 
     fn get8(&self, addr: u16) -> u8 {
@@ -509,6 +536,7 @@ impl MemoryMappedDevice for LcdController {
             OBP1 => self.obp1,
             WY => self.wy,
             WX => self.wx,
+            HDMA5 => 0xFF,
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
         }
     }

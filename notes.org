@@ -30,6 +30,17 @@
   - [X] nba jam, no ball
 - Window
   - [ ] nba jam, window on/off. should pick up where it left off
+- CGB
+  - [ ] double speed
+  - [X] vram dma
+    - [X] general purpose
+    - [ ] H-Blank
+  - [ ] x/y bg tile flip
+  - [ ] bg tile priority
+
+Broken
+  - loading with dmg boot rom
+
 - Crashes
   - Super Mario World 2, entering first level
   - Donkey Kong Land 3, first level, follow banana arrow down into water

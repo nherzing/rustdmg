@@ -127,9 +127,9 @@ impl MemoryMappedDeviceManager {
     }
 
     pub fn set_cartridge(&mut self, device: Cartridge) {
-        if !device.cgb_compatible() {
-            self.lcd_controller().set_mode(Mode::DMG);
-        }
+//         if !device.cgb_compatible() {
+//            self.lcd_controller().set_mode(Mode::DMG);
+//         }
         self.cartridge = Some(device);
     }
 
