@@ -1,10 +1,8 @@
-use crate::memory::memory_map::{MemoryMappedDevice};
-use crate::memory::memory_map::{MappedArea};
-use crate::gameboy::Color;
-use crate::gameboy::{GAME_WIDTH};
+use crate::memory::memory_map::{MemoryMappedDevice, MappedArea};
+use crate::gameboy::{Color, Mode, GAME_WIDTH};
 use super::tiles::TileSet;
-use super::palette::Palette;
-use super::background_map::BackgroundMap;
+use super::palette::{Palette, PaletteManager};
+use super::background_map::{BackgroundMap, BGPixel};
 use super::oam::{OamEntries, OamPixel, PaletteNumber, SpriteSize};
 use crate::interrupt_controller::Interrupt;
 
@@ -25,6 +23,18 @@ const OBP0: u16 = 0xFF48;
 const OBP1: u16 = 0xFF49;
 const WY: u16 = 0xFF4A;
 const WX: u16 = 0xFF4B;
+const VBK: u16 = 0xFF4F;
+
+const HDMA1: u16 = 0xFF51;
+const HDMA2: u16 = 0xFF52;
+const HDMA3: u16 = 0xFF53;
+const HDMA4: u16 = 0xFF54;
+const HDMA5: u16 = 0xFF55;
+
+const BGPI: u16 = 0xFF68;
+const BGPD: u16 = 0xFF69;
+const OBPI: u16 = 0xFF6A;
+const OBPD: u16 = 0xFF6B;
 
 const STAT_RO_MASK: u8 = 0b111;
 const STAT_RW_MASK: u8 = 0b01111000;
@@ -117,8 +127,17 @@ impl State {
     }
 }
 
+enum VRamBank {
+    Bank0,
+    Bank1
+}
+
+use VRamBank::*;
+
 pub struct LcdController {
-    vram: [u8; VRAM_SIZE],
+    vram0: [u8; VRAM_SIZE],
+    vram1: [u8; VRAM_SIZE],
+    vram_bank: VRamBank,
     oam: [u8; OAM_SIZE],
     lcdc: u8,
     stat: u8,
@@ -134,13 +153,18 @@ pub struct LcdController {
     bg_palette: Palette,
     ob0_palette: Palette,
     ob1_palette: Palette,
-    state: State
+    bg_palette_manager: PaletteManager,
+    ob_palette_manager: PaletteManager,
+    state: State,
+    mode: Mode
 }
 
 impl LcdController {
     pub fn new() -> LcdController {
         LcdController {
-            vram: [0; VRAM_SIZE],
+            vram0: [0; VRAM_SIZE],
+            vram1: [0; VRAM_SIZE],
+            vram_bank: Bank0,
             oam: [0; OAM_SIZE],
             lcdc: 0x91,
             stat: 0,
@@ -156,16 +180,28 @@ impl LcdController {
             bg_palette: Palette::new(0),
             ob0_palette: Palette::new(0),
             ob1_palette: Palette::new(0),
-            state: State::init()
+            bg_palette_manager: PaletteManager::new(),
+            ob_palette_manager: PaletteManager::new(),
+            state: State::init(),
+            mode: Mode::CGB
         }
     }
 
-    pub fn mapped_areas() -> [MappedArea; 3] {
+    pub fn mapped_areas() -> [MappedArea; 8] {
         [
             MappedArea(VRAM_START, VRAM_SIZE),
             MappedArea(LCDC, (LYC - LCDC + 1) as usize),
-            MappedArea(BGP, (WX - BGP + 1) as usize)
+            MappedArea(BGP, (WX - BGP + 1) as usize),
+            MappedArea(VBK, 1),
+            MappedArea(HDMA1, 5),
+            MappedArea(BGPI, 2),
+            MappedArea(OBPI, 2),
+            MappedArea(OAM_START, OAM_SIZE)
         ]
+    }
+
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
     }
 
     pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) where
@@ -212,23 +248,48 @@ impl LcdController {
         self.oam.copy_from_slice(data);
     }
 
-    fn bg_tile_set(&self) -> TileSet {
-        if b4!(self.lcdc) == 0 {
-            let bg_tile_data = &self.vram[0x800..0x1800];
-            TileSet::new(bg_tile_data, true)
-        } else {
-            let bg_tile_data = &self.vram[0x0..0x1000];
-            TileSet::new(bg_tile_data, false)
+    fn vram(&self) -> &[u8] {
+        match self.vram_bank {
+            Bank0 => &self.vram0,
+            Bank1 => &self.vram1
         }
     }
 
-    fn bg_map(&self, flag: u8) -> BackgroundMap {
-        let tile_set = self.bg_tile_set();
-        if flag == 1 {
-            BackgroundMap::new(&self.vram[TILE_MAP_1_OFFSET..TILE_MAP_1_OFFSET+TILE_MAP_SIZE], tile_set)
-        } else {
-            BackgroundMap::new(&self.vram[TILE_MAP_0_OFFSET..TILE_MAP_0_OFFSET+TILE_MAP_SIZE], tile_set)
+    fn vram_mut(&mut self) -> &mut [u8] {
+        match self.vram_bank {
+            Bank0 => &mut self.vram0,
+            Bank1 => &mut self.vram1
         }
+    }
+
+    fn bg_tile_sets(&self) -> (TileSet, TileSet) {
+        let (start, shift) = if b4!(self.lcdc) == 0 {
+            (0x0800, true)
+        } else {
+            (0x0, false)
+        };
+        let range = start..(start + 0x1000);
+
+        (TileSet::new(&self.vram0[range.clone()], shift),
+         TileSet::new(&self.vram1[range], shift))
+    }
+
+    fn bg_map(&self, flag: u8) -> BackgroundMap {
+        let (tile_set0, tile_set1) = self.bg_tile_sets();
+        let start = if flag == 1 {
+            TILE_MAP_1_OFFSET
+        } else {
+            TILE_MAP_0_OFFSET
+        };
+        let range = start..(start + TILE_MAP_SIZE);
+        let bg_map_attribute_data = match self.mode {
+            Mode::DMG => None,
+            Mode::CGB => Some(&self.vram1[range.clone()])
+        };
+        BackgroundMap::new(
+            &self.vram0[range],
+            tile_set0, tile_set1,
+            bg_map_attribute_data)
     }
 
     fn window_enabled(&self) -> bool {
@@ -243,12 +304,12 @@ impl LcdController {
         b7!(self.lcdc) == 1
     }
 
-    fn bg_row(&self) -> [u8; GAME_WIDTH] {
+    fn bg_row(&self) -> [BGPixel; GAME_WIDTH] {
         let bg_map = self.bg_map(b3!(self.lcdc));
 
         let bg_y = ((self.ly as usize) + (self.scy as usize)) % 256;
 
-        let mut result = [0; GAME_WIDTH];
+        let mut result = [Default::default(); GAME_WIDTH];
         let bg_row = bg_map.row(bg_y);
         for x in 0..GAME_WIDTH {
             result[x] = bg_row[(x + (self.scx as usize)) % 256];
@@ -256,7 +317,7 @@ impl LcdController {
         result
     }
 
-    fn window_row(&self) -> [Option<u8>; GAME_WIDTH] {
+    fn window_row(&self) -> [Option<BGPixel>; GAME_WIDTH] {
         if !self.window_enabled() ||
             self.wx as usize >= GAME_WIDTH + 7 ||
             self.ly < self.wy {
@@ -290,7 +351,7 @@ impl LcdController {
             return [None; GAME_WIDTH];
         }
 
-        let oam_tile_set = TileSet::new(&self.vram[0x0..0x1000], false);
+        let oam_tile_set = TileSet::new(&self.vram()[0x0..0x1000], false);
         let oam_entries = OamEntries::new(&self.oam, &oam_tile_set, self.sprite_size());
         oam_entries.row(self.ly)
     }
@@ -298,7 +359,7 @@ impl LcdController {
     fn fill_framebuffer(&self, frame_buffer: &mut [Color]) {
         if !self.display_enabled() {
             for pixel in frame_buffer {
-                *pixel = Color::Off
+                *pixel = Color::new(31, 31, 31)
             }
             return
         }
@@ -309,14 +370,15 @@ impl LcdController {
         let row_start = (self.ly as usize) * GAME_WIDTH;
 
         for x in 0..GAME_WIDTH {
-            let bg_color = match window_row[x] {
-                Some(p) => self.bg_palette.color(p),
-                None => self.bg_palette.color(bg_row[x])
+            let bg_pixel = match window_row[x] {
+                Some(p) => p,
+                None => bg_row[x]
             };
+            let bg_color = self.bg_color(bg_pixel);
             let color = match oam_row[x] {
                 None => bg_color,
                 Some(pixel) => {
-                    if pixel.above_background || bg_row[x] == 0 {
+                    if pixel.above_background || bg_row[x].value == 0 {
                         match pixel.palette_number {
                             PaletteNumber::Zero => self.ob0_palette.color(pixel.value),
                             PaletteNumber::One => self.ob1_palette.color(pixel.value)
@@ -330,8 +392,15 @@ impl LcdController {
         }
     }
 
+    fn bg_color(&self, pixel: BGPixel) -> Color {
+        match self.mode {
+            Mode::DMG => self.bg_palette.color(pixel.value),
+            Mode::CGB => self.bg_palette_manager.color(pixel)
+        }
+    }
+
     pub fn fill_tile_framebuffer(&self, tile_frame_buffer: &mut [Color]) {
-        let bg_tile_set = self.bg_tile_set();
+        let (bg_tile_set, _) = self.bg_tile_sets();
 
         for i in 0usize..256 {
             let tile = bg_tile_set.tile(i as u8);
@@ -352,7 +421,10 @@ impl MemoryMappedDevice for LcdController {
     fn set8(&mut self, addr: u16, byte: u8) {
         match addr {
             VRAM_START ... VRAM_END => {
-                self.vram[(addr - VRAM_START) as usize] = byte;
+                self.vram_mut()[(addr - VRAM_START) as usize] = byte;
+            }
+            VBK => {
+                self.vram_bank = if b0!(byte) == 0 { Bank0 } else { Bank1 };
             }
             OAM_START ... OAM_END => {
                 self.oam[(addr - OAM_START) as usize] = byte;
@@ -381,6 +453,18 @@ impl MemoryMappedDevice for LcdController {
                 self.obp1 = byte;
                 self.ob1_palette = Palette::new(byte);
             }
+            BGPI => {
+                self.bg_palette_manager.set_index(byte);
+            }
+            BGPD => {
+                self.bg_palette_manager.set8(byte);
+            }
+            OBPI => {
+                self.ob_palette_manager.set_index(byte);
+            }
+            OBPD => {
+                self.ob_palette_manager.set8(byte);
+            }
             SCY => {
                 self.scy = byte;
             }
@@ -404,7 +488,7 @@ impl MemoryMappedDevice for LcdController {
     fn get8(&self, addr: u16) -> u8 {
         match addr {
             VRAM_START ... VRAM_END => {
-                self.vram[(addr - VRAM_START) as usize]
+                self.vram()[(addr - VRAM_START) as usize]
              }
             LCDC => self.lcdc,
             STAT => {

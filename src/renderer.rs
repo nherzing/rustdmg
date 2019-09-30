@@ -9,37 +9,19 @@ use sdl2::rect::Rect;
 use samplerate::{Samplerate, ConverterType};
 use crate::clocks::{CLOCK_FREQ, AUDIO_SAMPLE_RATE, NS_PER_SCREEN_REFRESH, NS_PER_SAMPLE};
 use crate::cartridge::Cartridge;
-use crate::gameboy::{Gameboy, Color, JoypadInput, GAME_WIDTH, GAME_HEIGHT};
-
-// const UGLY_GREENS_PALETTE: [PColor; 5] = [
-//     PColor { r: 114, g: 129, b: 77, a: 255 },
-//     PColor { r: 86, g: 107, b: 86, a: 255 },
-//     PColor { r: 66, g: 92, b: 83, a: 255 },
-//     PColor { r: 63, g: 82, b: 80, a: 255 },
-//     PColor { r: 140, g: 128, b: 47, a: 255 }
-// ];
-const BW_PALETTE: [PColor; 5] = [
-    PColor { r: 255, g: 255, b: 255, a: 255 },
-    PColor { r: 170, g: 170, b: 170, a: 255 },
-    PColor { r: 85, g: 85, b: 85, a: 255 },
-    PColor { r: 0, g: 0, b: 0, a: 255 },
-    PColor { r: 0, g: 0, b: 0, a: 255 }
-];
+use crate::gameboy::{Gameboy, Color, JoypadInput, Mode, GAME_WIDTH, GAME_HEIGHT};
 
 const SCANCODES: [Scancode; 8] = [
     Scancode::W, Scancode::S, Scancode::A, Scancode::D,
     Scancode::X, Scancode::Z, Scancode::L, Scancode::K
 ];
 
+const RATIO: u8 = 8;
 fn to_pcolor(color: Color) -> PColor {
-    BW_PALETTE[match color {
-        Color::White => 0,
-        Color::LightGray => 1,
-        Color::DarkGray => 2,
-        Color::Black => 3,
-        Color::Off => 4
-    }]
+    PColor { r: color.r * RATIO, g: color.g * RATIO, b: color.b * RATIO, a: 255 }
 }
+
+const COLOR_OFF: Color = Color { r: 31, g: 31, b: 31 };
 
 fn scancode_to_joypad_input(scancode: &Scancode) -> JoypadInput {
     match *scancode {
@@ -79,12 +61,12 @@ impl Renderer {
             audio_converter,
             audio_queue,
             event_pump,
-            frame_buffer: [Color::Off; GAME_WIDTH * GAME_HEIGHT],
-            bg_tile_map_frame_buffer: [Color::Off; 128 * 192]
+            frame_buffer: [COLOR_OFF; GAME_WIDTH * GAME_HEIGHT],
+            bg_tile_map_frame_buffer: [COLOR_OFF; 128 * 192]
         }
     }
 
-    pub fn run(&mut self, cartridge: Cartridge, debug: bool, skip_boot_rom: bool) {
+    pub fn run(&mut self, cartridge: Cartridge, debug: bool, skip_boot_rom: bool, dmg: bool) {
         self.canvas.window_mut().set_size(GAME_WIDTH as u32 * 4, GAME_HEIGHT as u32 * 4).unwrap();
 
         let texture_creator = self.canvas.texture_creator();
@@ -97,7 +79,8 @@ impl Renderer {
 
         let mut audio_data = Vec::with_capacity(40_000);
 
-        let mut gameboy = Gameboy::new(debug);
+        let mode = if dmg { Mode::DMG } else { Mode::CGB };
+        let mut gameboy = Gameboy::new(debug, mode);
         gameboy.boot(cartridge.clone(), skip_boot_rom);
 
         let mut paused = false;
@@ -134,7 +117,7 @@ impl Renderer {
                         ..
                     } => {
                         paused = false;
-                        gameboy = Gameboy::new(debug);
+                        gameboy = Gameboy::new(debug, mode);
                         gameboy.boot(cartridge.clone(), skip_boot_rom);
                     }
                     Event::Window {

@@ -7,6 +7,13 @@ use super::mbc::{build_mbc, Mbc, MbcType};
 
 const ROM_BANK0_SIZE: usize = 0x4000;
 
+#[derive(Debug)]
+enum Mode {
+    DMG,
+    CGB,
+    Both
+}
+
 pub struct Cartridge<> {
     path: std::path::PathBuf,
     data: Vec<u8>,
@@ -16,16 +23,17 @@ pub struct Cartridge<> {
 
 impl Cartridge {
     pub fn new(path: std::path::PathBuf) -> Cartridge {
-        let boot_rom = include_bytes!("boot_rom.gb");
+        let boot_rom = include_bytes!("cgb_boot.bin");
         let data = fs::read(path.clone()).unwrap();
         let mut rom_bank0 = [0; ROM_BANK0_SIZE];
 
-        for i in 0..0x100 {
+        for i in 0..boot_rom.len() {
             rom_bank0[i] = boot_rom[i];
         }
-        for i in 0x100..ROM_BANK0_SIZE {
+        for i in 0x100..0x14F {
             rom_bank0[i] = data[i];
         }
+
         let mbc = build_mbc(data[0x147]);
 
         Self {
@@ -52,8 +60,15 @@ impl Cartridge {
     }
 
     pub fn clear_boot_rom(&mut self) {
-        for i in 0..0x100 {
+        for i in 0..self.rom_bank0.len() {
             self.rom_bank0[i] = self.data[i];
+        }
+    }
+
+    pub fn cgb_compatible(&self) -> bool {
+        match self.cgb_support() {
+            Mode::DMG => false,
+            _ => true
         }
     }
 
@@ -75,6 +90,15 @@ impl Cartridge {
 
     fn ram_size(&self) -> u8 {
         self.data[0x149]
+    }
+
+
+    fn cgb_support(&self) -> Mode {
+        match self.data[0x143] {
+            0x80 => Mode::Both,
+            0xC0 => Mode::CGB,
+            _ => Mode::DMG
+        }
     }
 }
 
@@ -108,9 +132,10 @@ impl MemoryMappedDevice for Cartridge {
 
 impl fmt::Debug for Cartridge {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ title: {}, type: {:?}, rom_size: {}, ram_size: {} }}",
+        write!(f, "{{ title: {}, type: {:?}, rom_size: {}, ram_size: {}, cgb_support: {:?} }}",
                self.title(), self.mbc_type(),
-               self.rom_size(), self.ram_size()
+               self.rom_size(), self.ram_size(),
+               self.cgb_support()
         )
     }
 }

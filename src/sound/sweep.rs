@@ -35,14 +35,12 @@ impl Sweep {
     }
 
     pub fn tick(&mut self) -> SweepAction {
-        debug!("TICK SWEEP MIGHT {:?}", self);
         if self.periods_left == 0 {
             self.periods_left = self.sweep_period;
         }
 
         if !self.enabled || self.sweep_period == 0 { return SweepAction::Nop }
 
-        debug!("TICK SWEEP");
         self.periods_left -= 1;
         if self.periods_left == 0 {
             self.periods_left = self.sweep_period;
@@ -54,7 +52,6 @@ impl Sweep {
                     if self.shift != 0 {
                         self.frequency = f;
                     }
-                    debug!("SWEEP: {} -> {:?}", self.frequency, self.new_frequency());
 
                     match self.new_frequency() {
                         None => SweepAction::Disable,
@@ -71,7 +68,6 @@ impl Sweep {
         self.frequency = frequency;
         self.periods_left = self.sweep_period;
         self.enabled = self.sweep_period != 0 || self.shift != 0;
-        debug!("TRIGGER SWEEP: {:?}", self);
         if self.shift != 0 {
             match self.new_frequency() {
                 None => SweepAction::Disable,

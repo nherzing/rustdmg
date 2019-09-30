@@ -4,6 +4,7 @@ use crate::interrupt_controller::{Interrupt};
 
 const SB: u16 = 0xFF01;
 const SC: u16 = 0xFF02;
+const RP: u16 = 0xFF56;
 
 pub struct SerialController {
     sb: u8,
@@ -20,9 +21,10 @@ impl SerialController {
         }
     }
 
-    pub fn mapped_areas() -> [MappedArea; 1] {
+    pub fn mapped_areas() -> [MappedArea; 2] {
         [
-            MappedArea(SB, 2)
+            MappedArea(SB, 2),
+            MappedArea(RP, 1)
         ]
     }
 
@@ -45,6 +47,7 @@ impl MemoryMappedDevice for SerialController {
         match addr {
             SB => self.sb,
             SC => self.sc,
+            RP => 0x00,
             _ => { panic!("Invalid get address 0x{:X} mapped to SerialController", addr) }
         }
     }
@@ -60,6 +63,7 @@ impl MemoryMappedDevice for SerialController {
                 }
                 self.sc = byte;
             }
+            RP => { }
             _ => { panic!("Invalid set address 0x{:X} mapped to SerialController", addr) }
         }
     }

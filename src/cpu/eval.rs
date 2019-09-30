@@ -491,10 +491,11 @@ impl Cpu {
 mod tests {
     use crate::memory::memory_map::{MemoryMap, MappedArea, MemoryMappedDevice, MemoryMappedDeviceManager, MemoryMappedDeviceId};
     use crate::ram_device::{RamDevice};
+    use crate::gameboy::Mode;
     use super::*;
 
     fn new_from_slice(data: &[u8]) -> (MemoryMap, MemoryMappedDeviceManager) {
-        let mut device = RamDevice::new(0, 0x10000);
+        let mut device = RamDevice::new(0, 0x10000, 1);
         for (addr, &v) in data.iter().enumerate() {
             device.set8(addr as u16, v);
         }
@@ -509,7 +510,7 @@ mod tests {
     fn test_nop() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x00]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
 
         assert_eq!(cpu.eval(&mut mb), 1);
         assert_eq!(cpu.registers.pc(), 0x01);
@@ -519,7 +520,7 @@ mod tests {
     fn test_02() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x02]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(BC, 0x1234);
         cpu.registers.set8(A, 42);
 
@@ -532,7 +533,7 @@ mod tests {
     fn test_06() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x06, 42]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
 
         assert_eq!(cpu.eval(&mut mb), 2);
         assert_eq!(cpu.registers.pc(), 0x02);
@@ -543,7 +544,7 @@ mod tests {
     fn test_0a() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x0A, 42]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(BC, 0x1234);
         mb.set8(0x1234, 42);
 
@@ -556,7 +557,7 @@ mod tests {
     fn test_e2() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE2]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(C, 0x34);
         cpu.registers.set8(A, 42);
 
@@ -569,7 +570,7 @@ mod tests {
     fn test_ea() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xEA, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(C, 0x34);
         cpu.registers.set8(A, 42);
 
@@ -582,7 +583,7 @@ mod tests {
     fn test_f2() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xF2]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         mb.set8(0xFF34, 42);
         cpu.registers.set8(C, 0x34);
 
@@ -595,7 +596,7 @@ mod tests {
     fn test_fa() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xFA, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         mb.set8(0xDEAD, 42);
 
         assert_eq!(cpu.eval(&mut mb), 4);
@@ -607,7 +608,7 @@ mod tests {
     fn test_e0() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE0, 0x34]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 42);
 
         assert_eq!(cpu.eval(&mut mb), 3);
@@ -619,7 +620,7 @@ mod tests {
     fn test_f0() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xF0, 0x34]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         mb.set8(0xFF34, 42);
 
         assert_eq!(cpu.eval(&mut mb), 3);
@@ -631,7 +632,7 @@ mod tests {
     fn test_22() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x22]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0xDEAD);
         cpu.registers.set8(A, 42);
 
@@ -645,7 +646,7 @@ mod tests {
     fn test_2a() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x2a]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0xDEAD);
         mb.set8(0xDEAD, 42);
 
@@ -659,7 +660,7 @@ mod tests {
     fn test_32() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x32]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0xDEAD);
         cpu.registers.set8(A, 42);
 
@@ -673,7 +674,7 @@ mod tests {
     fn test_3a() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x3a]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0xDEAD);
         mb.set8(0xDEAD, 42);
 
@@ -687,7 +688,7 @@ mod tests {
     fn test_01() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x01, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
 
         assert_eq!(cpu.eval(&mut mb), 3);
         assert_eq!(cpu.registers.pc(), 0x03);
@@ -698,7 +699,7 @@ mod tests {
     fn test_08() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x08, 0xAD, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0x1234);
 
         assert_eq!(cpu.eval(&mut mb), 5);
@@ -711,7 +712,7 @@ mod tests {
     fn test_c5() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xC5]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFFE);
         cpu.registers.set16(BC, 0x1234);
 
@@ -726,7 +727,7 @@ mod tests {
     fn test_e1() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE1]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFFC);
         mb.set16(0xFFFC, 0xDEAD);
 
@@ -741,7 +742,7 @@ mod tests {
     fn test_82() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x82]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 2);
         cpu.registers.set8(D, 3);
 
@@ -759,7 +760,7 @@ mod tests {
     fn test_82_zhcy() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x82]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3A);
         cpu.registers.set8(D, 0xC6);
 
@@ -777,7 +778,7 @@ mod tests {
     fn test_82_h() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x82]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 10);
         cpu.registers.set8(D, 11);
 
@@ -794,7 +795,7 @@ mod tests {
     fn test_c6_hcy() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xC6, 0x7]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 250);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -810,7 +811,7 @@ mod tests {
     fn test_8b() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x8B]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0xE1);
         cpu.registers.set8(E, 0x0F);
         cpu.registers.set_flags(false, false, false, true);
@@ -828,7 +829,7 @@ mod tests {
     fn test_ce() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCE, 0x3B]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0xE1);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -845,7 +846,7 @@ mod tests {
     fn test_8e() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x8E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0xE1);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x1E);
@@ -864,7 +865,7 @@ mod tests {
     fn test_93() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x93]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3E);
         cpu.registers.set8(E, 0x3E);
 
@@ -881,7 +882,7 @@ mod tests {
     fn test_d6() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xD6, 0x0F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3E);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -897,7 +898,7 @@ mod tests {
     fn test_96() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x96]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3E);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x40);
@@ -915,7 +916,7 @@ mod tests {
     fn test_9c() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x9c]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3B);
         cpu.registers.set8(H, 0x2A);
         cpu.registers.set_flags(false, false, false, true);
@@ -933,7 +934,7 @@ mod tests {
     fn test_de() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xDE, 0x3A]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3B);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -950,7 +951,7 @@ mod tests {
     fn test_9e() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x9E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3B);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x4F);
@@ -969,7 +970,7 @@ mod tests {
     fn test_a5() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xa5]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x5A);
         cpu.registers.set8(L, 0x3F);
 
@@ -986,7 +987,7 @@ mod tests {
     fn test_f6() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xF6, 0x03]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x5A);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1002,7 +1003,7 @@ mod tests {
     fn test_ae() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xae]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0xFF);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x8A);
@@ -1020,7 +1021,7 @@ mod tests {
     fn test_b8() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xB8]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3C);
         cpu.registers.set8(B, 0x2F);
 
@@ -1037,7 +1038,7 @@ mod tests {
     fn test_fe() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xFE, 0x3C]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3C);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1053,7 +1054,7 @@ mod tests {
     fn test_be() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xBE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3C);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x40);
@@ -1071,7 +1072,7 @@ mod tests {
     fn test_3c() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x3C]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0xFF);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -1088,7 +1089,7 @@ mod tests {
     fn test_34() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x34]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x50);
 
@@ -1105,7 +1106,7 @@ mod tests {
     fn test_2d() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x2D]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(L, 0x01);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -1122,7 +1123,7 @@ mod tests {
     fn test_35() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x35]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x00);
 
@@ -1139,7 +1140,7 @@ mod tests {
     fn test_09() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x09]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x8A23);
         cpu.registers.set16(BC, 0x0605);
         cpu.registers.set_flags(true, false, false, false);
@@ -1157,7 +1158,7 @@ mod tests {
     fn test_29() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x29]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x8A23);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1173,7 +1174,7 @@ mod tests {
     fn test_e8() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE8, 0x02]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFF8);
 
         assert_eq!(cpu.eval(&mut mb), 4);
@@ -1189,7 +1190,7 @@ mod tests {
     fn test_e8_neg() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE8, 0xFE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFF8);
 
         assert_eq!(cpu.eval(&mut mb), 4);
@@ -1205,7 +1206,7 @@ mod tests {
     fn test_13() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x13]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(DE, 0x235F);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1217,7 +1218,7 @@ mod tests {
     fn test_1b() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x1B]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(DE, 0x235F);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1229,7 +1230,7 @@ mod tests {
     fn test_07() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x07]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x85);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1243,7 +1244,7 @@ mod tests {
     fn test_17() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x17]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x95);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -1257,7 +1258,7 @@ mod tests {
     fn test_0f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x0F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x3B);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1270,7 +1271,7 @@ mod tests {
     fn test_1f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x1F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x81);
         cpu.registers.set_flags(false, false, false, false);
 
@@ -1284,7 +1285,7 @@ mod tests {
     fn test_cb00() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x00]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(B, 0x85);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1297,7 +1298,7 @@ mod tests {
     fn test_cb06() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x06]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0);
 
@@ -1312,7 +1313,7 @@ mod tests {
     fn test_cb15() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x15]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(L, 0x80);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1326,7 +1327,7 @@ mod tests {
     fn test_cb16() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x16]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x11);
 
@@ -1341,7 +1342,7 @@ mod tests {
     fn test_cb09() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x09]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(C, 0x01);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1356,7 +1357,7 @@ mod tests {
     fn test_cb1f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x1F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x01);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1370,7 +1371,7 @@ mod tests {
     fn test_cb22() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x22]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(D, 0x80);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1384,7 +1385,7 @@ mod tests {
     fn test_cb2e() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x2E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x8A);
 
@@ -1399,7 +1400,7 @@ mod tests {
     fn test_cb36() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x36]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0xF0);
 
@@ -1414,7 +1415,7 @@ mod tests {
     fn test_cb3e() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x3E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0xFF);
 
@@ -1429,7 +1430,7 @@ mod tests {
     fn test_cb7f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x7F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x80);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -1445,7 +1446,7 @@ mod tests {
     fn test_cb65() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x65]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(L, 0xEF);
         cpu.registers.set_flags(false, false, false, true);
 
@@ -1461,7 +1462,7 @@ mod tests {
     fn test_cb46() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x46]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0xFE);
         cpu.registers.set_flags(false, false, false, true);
@@ -1478,7 +1479,7 @@ mod tests {
     fn test_cb4e() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x4E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0xFE);
         cpu.registers.set_flags(false, false, false, true);
@@ -1495,7 +1496,7 @@ mod tests {
     fn test_cbbf() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0xBF]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x80);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1507,7 +1508,7 @@ mod tests {
     fn test_cb93() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0x9E]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0xFF);
 
@@ -1520,7 +1521,7 @@ mod tests {
     fn test_cbfd() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0xFD]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(L, 0x3B);
 
         assert_eq!(cpu.eval(&mut mb), 2);
@@ -1533,7 +1534,7 @@ mod tests {
     fn test_cbde() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCB, 0xDE]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x1234);
         mb.set8(0x1234, 0x00);
 
@@ -1547,7 +1548,7 @@ mod tests {
     fn test_c3() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xC3, 0x12, 0x80]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
 
         assert_eq!(cpu.eval(&mut mb), 4);
         assert_eq!(cpu.registers.pc(), 0x8012);
@@ -1557,7 +1558,7 @@ mod tests {
     fn test_e9() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xE9]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(HL, 0x8012);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1568,7 +1569,7 @@ mod tests {
     fn test_c2() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xC2, 0x00, 0x80]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, false, false, false);
 
         assert_eq!(cpu.eval(&mut mb), 3);
@@ -1579,7 +1580,7 @@ mod tests {
     fn test_ca() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xCA, 0x00, 0x80]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, false, false, false);
 
         assert_eq!(cpu.eval(&mut mb), 4);
@@ -1590,7 +1591,7 @@ mod tests {
     fn test_d2() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xD2, 0x00, 0x80]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, false, false, false);
 
         assert_eq!(cpu.eval(&mut mb), 4);
@@ -1601,7 +1602,7 @@ mod tests {
     fn test_da() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xDA, 0x00, 0x80]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, false, false, false);
 
         assert_eq!(cpu.eval(&mut mb), 3);
@@ -1612,7 +1613,7 @@ mod tests {
     fn test_18() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x18, 0x03]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
 
         assert_eq!(cpu.eval(&mut mb), 3);
         assert_eq!(cpu.registers.pc(), 0x05);
@@ -1622,7 +1623,7 @@ mod tests {
     fn test_28() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x28, 0xFD]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, false, false, false);
         cpu.registers.set16(PC, 4);
 
@@ -1634,7 +1635,7 @@ mod tests {
     fn test_cd() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x00, 0x00, 0x00, 0xcd, 0x34, 0x12]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFFE);
         cpu.registers.set16(PC, 0x03);
 
@@ -1650,7 +1651,7 @@ mod tests {
     fn test_c9() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xC9]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         mb.set8(0xFFFC, 0x02);
         mb.set8(0xFFFD, 0x00);
         cpu.registers.set16(SP, 0xFFFC);
@@ -1665,7 +1666,7 @@ mod tests {
     fn test_d9() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xD9]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         mb.set8(0xFFFC, 0x02);
         mb.set8(0xFFFD, 0x00);
         cpu.registers.set16(SP, 0xFFFC);
@@ -1681,7 +1682,7 @@ mod tests {
     fn test_e7() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x00, 0x00, 0x00, 0xe7]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFFE);
         cpu.registers.set16(PC, 0x03);
 
@@ -1697,7 +1698,7 @@ mod tests {
     fn test_27() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x80, 0x27, 0x90, 0x27]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x45);
         cpu.registers.set8(B, 0x38);
 
@@ -1714,7 +1715,7 @@ mod tests {
     fn test_2f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x2F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set8(A, 0x35);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1727,7 +1728,7 @@ mod tests {
     fn test_3f() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x3F]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, true, true, false);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1741,7 +1742,7 @@ mod tests {
     fn test_37() {
         let (mut mm, mut mmdm) = new_from_slice(&[0x37]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set_flags(true, true, true, false);
 
         assert_eq!(cpu.eval(&mut mb), 1);
@@ -1755,7 +1756,7 @@ mod tests {
     fn test_f8() {
         let (mut mm, mut mmdm) = new_from_slice(&[0xF8, 0x2]);
         let mut mb = MemoryBus::new(&mut mm, &mut mmdm);
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(Mode::DMG);
         cpu.registers.set16(SP, 0xFFF8);
 
         assert_eq!(cpu.eval(&mut mb), 3);

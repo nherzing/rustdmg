@@ -32,9 +32,10 @@ mod renderer;
 struct Cli {
     #[structopt(short, long)]
     debug: bool,
+    #[structopt(long)]
+    dmg: bool,
     #[structopt(short, long)]
     skip_boot_rom: bool,
-
     #[structopt(parse(from_os_str))]
     cartridge_path: std::path::PathBuf,
 }
@@ -42,10 +43,6 @@ struct Cli {
 fn main() {
     let args = Cli::from_args();
     let cartridge = cartridge::Cartridge::new(args.cartridge_path);
-
-    if args.debug {
-        debug!("Debug enabled!");
-    }
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -75,5 +72,5 @@ fn main() {
 
     let mut renderer = renderer::Renderer::new(canvas, audio_queue, event_pump);
 
-    renderer.run(cartridge, args.debug, args.skip_boot_rom);
+    renderer.run(cartridge, args.debug, args.skip_boot_rom, args.dmg);
 }

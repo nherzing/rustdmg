@@ -1,3 +1,4 @@
+use crate::gameboy::Mode;
 use crate::memory::memory_bus::{MemoryBus};
 use self::registers::{Registers, Register};
 
@@ -13,9 +14,16 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new(mode: Mode) -> Cpu {
+        let mut registers = Registers::new();
+        match mode {
+            Mode::CGB => {
+                registers.set8(Register::A, 0x11);
+            }
+            _ => {}
+        }
         Cpu {
-            registers: Registers::new(),
+            registers,
             ime: false,
             halted: false,
             debug: false

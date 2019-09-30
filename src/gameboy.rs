@@ -14,12 +14,16 @@ pub const GAME_WIDTH: usize = 160;
 pub const GAME_HEIGHT: usize = 144;
 
 #[derive(Copy, Clone, Debug)]
-pub enum Color {
-    White,
-    LightGray,
-    DarkGray,
-    Black,
-    Off
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8
+}
+
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Color { r, g, b }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,30 +38,58 @@ pub enum JoypadInput {
     B
 }
 
+#[derive(Clone, Copy)]
+pub enum Mode {
+    DMG,
+    CGB
+}
+
+impl Mode {
+    fn is_cgb(&self) -> bool {
+        match self {
+            Mode::DMG => false,
+            Mode::CGB => true
+        }
+    }
+}
+
 pub struct Gameboy {
     cpu: Cpu,
     memory_map: MemoryMap,
-    device_manager: MemoryMappedDeviceManager
+    device_manager: MemoryMappedDeviceManager,
+    mode: Mode
 }
 
 impl Gameboy {
-    pub fn new(debug: bool) -> Self {
-        let mut cpu = Cpu::new();
+    pub fn new(debug: bool, mode: Mode) -> Self {
+        let mut cpu = Cpu::new(mode);
         if debug { cpu.enable_debug(); }
 
         let mut device_manager = MemoryMappedDeviceManager::new();
-        device_manager.set_ram_bank0(RamDevice::new(0xC000, 0x4000));
+        match mode {
+            Mode::CGB => {
+                device_manager.set_ram_bank0(RamDevice::new(0xC000, 0x1000, 1));
+                device_manager.set_ram_bank1(RamDevice::new(0xD000, 0x1000, 7));
+            }
+            Mode::DMG => {
+                device_manager.set_ram_bank0(RamDevice::new(0xC000, 0x1000, 1));
+                device_manager.set_ram_bank1(RamDevice::new(0xD000, 0x1000, 1));
+            }
+        }
+
         device_manager.set_interrupt_controller(InterruptController::new());
         device_manager.set_timer(TimerController::new());
         device_manager.set_lcd_controller(LcdController::new());
         device_manager.set_sound_controller(SoundController::new());
         device_manager.set_serial_controller(SerialController::new());
         device_manager.set_joypad_controller(JoypadController::new());
+        device_manager.set_hram(RamDevice::new(0xFF80, 128, 1));
 
         Gameboy {
             cpu,
             memory_map: MemoryMap::new(),
-            device_manager
+            device_manager,
+            mode
         }
     }
 
@@ -72,7 +104,14 @@ impl Gameboy {
     }
 
     fn map_devices(&mut self, cartridge: Cartridge) {
-        self.memory_map.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0xC000, 0x4000)]);
+        self.memory_map.register(MemoryMappedDeviceId::Ignore, &[MappedArea(0x0000, 0x10000)]);
+
+        self.memory_map.register(MemoryMappedDeviceId::RAMBank0, &[MappedArea(0xC000, 0x1000)]);
+        self.memory_map.register(MemoryMappedDeviceId::RAMBank1, &[MappedArea(0xD000, 0x1000)]);
+        if self.mode.is_cgb() {
+            self.memory_map.register(MemoryMappedDeviceId::RAMBank1, &[MappedArea(0xFF70, 1)]);
+        }
+
         self.memory_map.register(MemoryMappedDeviceId::Cartridge, &Cartridge::mapped_areas());
         self.memory_map.set_symbols(cartridge.symbols());
         self.device_manager.set_cartridge(cartridge);
@@ -83,6 +122,7 @@ impl Gameboy {
         self.memory_map.register(MemoryMappedDeviceId::Sound, &SoundController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::Joypad, &JoypadController::mapped_areas());
         self.memory_map.register(MemoryMappedDeviceId::Serial, &SerialController::mapped_areas());
+        self.memory_map.register(MemoryMappedDeviceId::HRAM, &[MappedArea(0xFF80, 0xFFFF - 0xFF80)]);
     }
 
     pub fn tick(&mut self, pressed_inputs: &[JoypadInput], mut frame_buffer: &mut [Color], mut audio_queue: &mut Vec<f32>) {

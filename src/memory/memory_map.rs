@@ -1,3 +1,4 @@
+use crate::gameboy::Mode;
 use crate::cartridge::Cartridge;
 use crate::ram_device::RamDevice;
 use crate::joypad_controller::JoypadController;
@@ -21,12 +22,15 @@ pub trait MemoryMappedDevice {
 pub enum MemoryMappedDeviceId {
     Cartridge,
     RAMBank0,
+    RAMBank1,
     Timer,
     Interrupt,
     Joypad,
     LCD,
     Serial,
-    Sound
+    Sound,
+    HRAM,
+    Ignore
 }
 
 use MemoryMappedDeviceId::*;
@@ -72,15 +76,37 @@ impl MemoryMap {
     }
 }
 
+struct NullDevice { }
+
+impl NullDevice {
+    fn new() -> Self {
+        Self { }
+    }
+}
+
+impl MemoryMappedDevice for NullDevice {
+    fn set8(&mut self, _addr: u16, _byte: u8) {
+        debug!("Unhandled write {:X}: {:X}", _addr, _byte);
+    }
+
+    fn get8(&self, _addr: u16) -> u8 {
+        debug!("Unhandled get {:X}", _addr);
+        0xFF
+    }
+}
+
 pub struct MemoryMappedDeviceManager {
     cartridge: Option<Cartridge>,
     ram_bank0: Option<RamDevice>,
+    ram_bank1: Option<RamDevice>,
     interrupt_controller: Option<InterruptController>,
     joypad_controller: Option<JoypadController>,
     timer: Option<TimerController>,
     lcd_controller: Option<LcdController>,
     sound_controller: Option<SoundController>,
-    serial_controller: Option<SerialController>
+    serial_controller: Option<SerialController>,
+    hram: Option<RamDevice>,
+    ignore: NullDevice
 }
 
 impl MemoryMappedDeviceManager {
@@ -88,16 +114,22 @@ impl MemoryMappedDeviceManager {
         MemoryMappedDeviceManager {
             cartridge: None,
             ram_bank0: None,
+            ram_bank1: None,
             interrupt_controller: None,
             joypad_controller: None,
             timer: None,
             lcd_controller: None,
             sound_controller: None,
-            serial_controller: None
+            serial_controller: None,
+            hram: None,
+            ignore: NullDevice::new()
         }
     }
 
     pub fn set_cartridge(&mut self, device: Cartridge) {
+        if !device.cgb_compatible() {
+            self.lcd_controller().set_mode(Mode::DMG);
+        }
         self.cartridge = Some(device);
     }
 
@@ -116,6 +148,17 @@ impl MemoryMappedDeviceManager {
         match self.ram_bank0 {
             Some(ref mut v) => v,
             None => panic!("No registered RAMBank0")
+        }
+    }
+
+    pub fn set_ram_bank1(&mut self, device: RamDevice) {
+        self.ram_bank1 = Some(device);
+    }
+
+    pub fn ram_bank1(&mut self) -> &mut RamDevice {
+        match self.ram_bank1 {
+            Some(ref mut v) => v,
+            None => panic!("No registered RAMBank1")
         }
     }
 
@@ -185,16 +228,30 @@ impl MemoryMappedDeviceManager {
         }
     }
 
+    pub fn set_hram(&mut self, device: RamDevice) {
+        self.hram = Some(device);
+    }
+
+    pub fn hram(&mut self) -> &mut RamDevice {
+        match self.hram {
+            Some(ref mut v) => v,
+            None => panic!("No registered HRAM Device")
+        }
+    }
+
     pub fn get(&mut self, id: MemoryMappedDeviceId) -> &mut MemoryMappedDevice {
         match id {
             Cartridge => self.cartridge(),
             RAMBank0 => self.ram_bank0(),
+            RAMBank1 => self.ram_bank1(),
             Timer => self.timer(),
             LCD => self.lcd_controller(),
             Sound => self.sound_controller(),
             Interrupt => self.interrupt_controller(),
             Joypad => self.joypad_controller(),
-            Serial => self.serial_controller()
+            Serial => self.serial_controller(),
+            HRAM => self.hram(),
+            Ignore => &mut self.ignore
         }
     }
 }
