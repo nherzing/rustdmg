@@ -485,7 +485,6 @@ impl MemoryMappedDevice for LcdController {
             LCDC => {
                 let display_was_enabled = self.display_enabled();
                 self.lcdc = byte;
-                debug!("LCDC: {:X}", self.lcdc);
                 if display_was_enabled && !self.display_enabled() {
                     self.ly = 0;
                     self.state = State::init();
@@ -554,7 +553,13 @@ impl MemoryMappedDevice for LcdController {
         match addr {
             VRAM_START ... VRAM_END => {
                 self.vram()[(addr - VRAM_START) as usize]
-             }
+            }
+            VBK => {
+                match self.vram_bank {
+                    VRamBank::Bank0 => 0x00,
+                    VRamBank::Bank1 => 0x01
+                }
+            }
             LCDC => self.lcdc,
             STAT => {
                 if self.display_enabled() {
