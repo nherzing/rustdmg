@@ -2,12 +2,6 @@ use crate::gameboy::{GAME_WIDTH};
 use super::tiles::{TileSet};
 
 #[derive(Clone, Copy)]
-pub enum PaletteNumber {
-    Zero,
-    One
-}
-
-#[derive(Clone, Copy)]
 pub enum SpriteSize {
     EightByEight,
     EightBySixteen
@@ -21,7 +15,7 @@ struct OamEntry {
     above_background: bool,
     y_flip: bool,
     x_flip: bool,
-    palette_number: PaletteNumber,
+    palette_number: u8,
 }
 
 impl OamEntry {
@@ -39,7 +33,7 @@ impl OamEntry {
             above_background: b7!(flags) == 0,
             y_flip: b6!(flags) == 1,
             x_flip: b5!(flags) == 1,
-            palette_number: if b4!(flags) == 0 { PaletteNumber::Zero } else { PaletteNumber::One }
+            palette_number: b4!(flags)
         }
     }
 
@@ -68,7 +62,7 @@ impl OamEntry {
 pub struct OamPixel {
     pub value: u8,
     pub above_background: bool,
-    pub palette_number: PaletteNumber
+    pub palette_number: u8
 }
 
 pub struct OamEntries<'a> {

@@ -3,7 +3,7 @@ use crate::gameboy::{Color, Mode, GAME_WIDTH};
 use super::tiles::TileSet;
 use super::palette::{Palette, PaletteManager};
 use super::background_map::{BackgroundMap, BGPixel};
-use super::oam::{OamEntries, OamPixel, PaletteNumber, SpriteSize};
+use super::oam::{OamEntries, OamPixel, SpriteSize};
 use crate::interrupt_controller::Interrupt;
 
 pub const VRAM_START: u16 = 0x8000;
@@ -127,6 +127,7 @@ impl State {
     }
 }
 
+#[derive(Debug)]
 enum VRamBank {
     Bank0,
     Bank1
@@ -158,7 +159,8 @@ pub struct LcdController {
     state: State,
     mode: Mode,
     vram_dma_src: u16,
-    vram_dma_dst: u16
+    vram_dma_dst: u16,
+    dma_hblanks: u16
 }
 
 impl LcdController {
@@ -187,7 +189,8 @@ impl LcdController {
             state: State::init(),
             mode: Mode::CGB,
             vram_dma_src: 0,
-            vram_dma_dst: 0
+            vram_dma_dst: 0,
+            dma_hblanks: 0
         }
     }
 
@@ -239,6 +242,9 @@ impl LcdController {
                     }
                 }
                 HBlank => {
+                    if self.dma_hblanks > 0 {
+                        self.dma_hblanks -= 1;
+                    }
                     if b3!(self.stat) == 1 {
                         fire_interrupt(Interrupt::Stat);
                     }
@@ -252,10 +258,14 @@ impl LcdController {
         self.oam.copy_from_slice(data);
     }
 
-    pub fn vram_dma(&mut self, data: &[u8]) {
+    pub fn vram_dma(&mut self, data: &[u8], hblank: bool) {
+        debug!("vram dma: {:?} {:X} -> {:X}, len: {}", self.vram_bank, self.vram_dma_src, self.vram_dma_dst + 0x8000, data.len());
         let offset = self.vram_dma_dst as usize;
         for (i, d) in data.iter().enumerate() {
             self.vram_mut()[offset + i] = *d;
+        }
+        if hblank {
+            self.dma_hblanks = (data.len() >> 4) as u16;
         }
     }
 
@@ -390,10 +400,7 @@ impl LcdController {
                 None => bg_color,
                 Some(pixel) => {
                     if pixel.above_background || bg_row[x].value == 0 {
-                        match pixel.palette_number {
-                            PaletteNumber::Zero => self.ob0_palette.color(pixel.value),
-                            PaletteNumber::One => self.ob1_palette.color(pixel.value)
-                        }
+                        self.oam_color(pixel)
                     } else {
                         bg_color
                     }
@@ -406,7 +413,20 @@ impl LcdController {
     fn bg_color(&self, pixel: BGPixel) -> Color {
         match self.mode {
             Mode::DMG => self.bg_palette.color(pixel.value),
-            Mode::CGB => self.bg_palette_manager.color(pixel)
+            Mode::CGB => self.bg_palette_manager.color(pixel.palette_number, pixel.value)
+        }
+    }
+
+    fn oam_color(&self, pixel: OamPixel) -> Color {
+        match self.mode {
+            Mode::DMG => {
+                match pixel.palette_number {
+                    0 => self.ob0_palette.color(pixel.value),
+                    1 => self.ob1_palette.color(pixel.value),
+                    _ => panic!("Invalid palette number for dmg oam {}", pixel.palette_number)
+                }
+            }
+            Mode::CGB => self.ob_palette_manager.color(pixel.palette_number, pixel.value)
         }
     }
 
@@ -416,10 +436,10 @@ impl LcdController {
 
 
     pub fn fill_tile_framebuffer(&self, tile_frame_buffer: &mut [Color]) {
-        let (bg_tile_set, _) = self.bg_tile_sets();
+        let tile_set = TileSet::new(&self.vram0[0..0x1000], false);
 
         for i in 0usize..256 {
-            let tile = bg_tile_set.tile(i as u8);
+            let tile = tile_set.tile(i as u8);
             let origin = (i / 16)*128*8 + (i % 16)*8;
             for j in 0..8 {
                 let row = tile.row(j);
@@ -430,6 +450,23 @@ impl LcdController {
                 }
             }
         }
+
+        let tile_set = TileSet::new(&self.vram0[0x01000..0x1800], false);
+        let start = 16*128*8;
+
+        for i in 0usize..128 {
+            let tile = tile_set.tile(i as u8);
+            let origin = start + (i / 16)*128*8 + (i % 16)*8;
+            for j in 0..8 {
+                let row = tile.row(j);
+                let row_start = origin + 128 * j;
+                for (k, p) in row.iter().enumerate() {
+                    let color = self.bg_palette.color(*p);
+                    tile_frame_buffer[row_start + k] = color;
+                }
+            }
+        }
+
     }
 }
 
@@ -448,6 +485,7 @@ impl MemoryMappedDevice for LcdController {
             LCDC => {
                 let display_was_enabled = self.display_enabled();
                 self.lcdc = byte;
+                debug!("LCDC: {:X}", self.lcdc);
                 if display_was_enabled && !self.display_enabled() {
                     self.ly = 0;
                     self.state = State::init();
@@ -497,16 +535,16 @@ impl MemoryMappedDevice for LcdController {
                 self.wy = byte;
             }
             HDMA1 => {
-                self.vram_dma_src = ((byte as u16) << 8) | (self.vram_dma_src & 0xF0)
+                self.vram_dma_src = (((byte as u16) << 8) & 0xFF00) | (self.vram_dma_src & 0xF0)
             }
             HDMA2 => {
-                self.vram_dma_src = (self.vram_dma_src & 0xFF00) | ((byte as u16) & 0xF0)
+                self.vram_dma_src = (self.vram_dma_src & 0xFF00) | ((byte & 0xF0) as u16)
             }
             HDMA3 => {
                 self.vram_dma_dst = (((byte as u16) << 8) & 0x1F00) | (self.vram_dma_dst & 0xF0)
             }
             HDMA4 => {
-                self.vram_dma_dst = (self.vram_dma_dst & 0x1F00) | ((byte as u16) & 0xF0)
+                self.vram_dma_dst = (self.vram_dma_dst & 0x1F00) | ((byte & 0xF0) as u16)
             }
             _ => panic!("Invalid set address 0x{:X} mapped to LCD Controller", addr)
         }
@@ -536,7 +574,13 @@ impl MemoryMappedDevice for LcdController {
             OBP1 => self.obp1,
             WY => self.wy,
             WX => self.wx,
-            HDMA5 => 0xFF,
+            HDMA5 => {
+                if self.dma_hblanks == 0 {
+                    0xFF
+                } else {
+                    0x00
+                }
+            }
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
         }
     }

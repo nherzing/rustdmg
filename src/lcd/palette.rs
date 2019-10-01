@@ -61,8 +61,8 @@ impl PaletteManager {
         }
     }
 
-    pub fn color(&self, pixel: BGPixel) -> Color {
-        let offset = (pixel.palette_number * 8 + pixel.value * 2) as usize;
+    pub fn color(&self, palette_number: u8, value: u8) -> Color {
+        let offset = (palette_number * 8 + value * 2) as usize;
         let b0 = self.data[offset] as u16;
         let b1 = self.data[offset + 1] as u16;
         let b10 = (b1 << 8) | b0;

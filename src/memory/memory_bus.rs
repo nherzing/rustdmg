@@ -36,13 +36,13 @@ impl<'a> MemoryBus<'a> {
                 self.devices.lcd_controller().dma(&data);
             }
             HDMA5 => {
-                let len = (((byte & 0x7F) as usize) + 1) * 0x10;
+                let len = (((byte & 0x7F) as usize) + 1) << 4;
                 let source = self.devices.lcd_controller().vram_dma_source();
                 let mut data = Vec::with_capacity(len as usize);
                 for i in 0..len {
                     data.push(self.get8(source + i as u16));
                 }
-                self.devices.lcd_controller().vram_dma(&data);
+                self.devices.lcd_controller().vram_dma(&data, b7!(byte) == 1);
             }
             _ => {
                 self.get_device(addr).set8(addr, byte);

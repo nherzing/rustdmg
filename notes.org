@@ -31,10 +31,11 @@
 - Window
   - [ ] nba jam, window on/off. should pick up where it left off
 - CGB
+  - [X] Sprite palette
   - [ ] double speed
   - [X] vram dma
     - [X] general purpose
-    - [ ] H-Blank
+    - [X] H-Blank (sort of, close enough for Pokemon Crystal intro)
   - [ ] x/y bg tile flip
   - [ ] bg tile priority
 
