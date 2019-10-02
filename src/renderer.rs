@@ -1,4 +1,4 @@
-use std::{thread, time};
+use std::{fs, thread, time};
 use sdl2::pixels::{PixelFormatEnum, Color as PColor};
 use sdl2::render::{WindowCanvas, Texture};
 use sdl2::audio::AudioQueue;
@@ -83,6 +83,7 @@ impl Renderer {
         let mut gameboy = Gameboy::new(debug, mode);
         gameboy.boot(cartridge.clone(), skip_boot_rom);
 
+        let mut saves = 0;
         let mut paused = false;
         'running: loop {
             let pressed = collect_pressed(&self.event_pump.keyboard_state());
@@ -119,6 +120,13 @@ impl Renderer {
                         paused = false;
                         gameboy = Gameboy::new(debug, mode);
                         gameboy.boot(cartridge.clone(), skip_boot_rom);
+                    }
+                    Event::KeyDown {
+                        keycode: Some(Keycode::P),
+                        ..
+                    } => {
+                        fs::write(format!("./{}.sav", saves), gameboy.dump_ram()).unwrap();
+                        saves += 1;
                     }
                     Event::Window {
                         win_event: WindowEvent::Resized(_, h),

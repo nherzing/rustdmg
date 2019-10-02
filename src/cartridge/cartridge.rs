@@ -22,7 +22,7 @@ pub struct Cartridge<> {
 }
 
 impl Cartridge {
-    pub fn new(path: std::path::PathBuf) -> Cartridge {
+    pub fn new(path: std::path::PathBuf, save_path: Option<std::path::PathBuf>) -> Cartridge {
         let boot_rom = include_bytes!("cgb_boot.bin");
         let data = fs::read(path.clone()).unwrap();
         let mut rom_bank0 = [0; ROM_BANK0_SIZE];
@@ -34,7 +34,10 @@ impl Cartridge {
             rom_bank0[i] = data[i];
         }
 
-        let mbc = build_mbc(data[0x147]);
+        let mut mbc = build_mbc(data[0x147]);
+        if let Some(save_path) = save_path {
+            mbc.load_ram(&fs::read(save_path).unwrap());
+        }
 
         Self {
             data, path, rom_bank0, mbc
@@ -72,6 +75,10 @@ impl Cartridge {
         }
     }
 
+    pub fn dump_ram(&self) -> Vec<u8> {
+        self.mbc.dump_ram()
+    }
+
     fn rom_bank1_start(&self) -> usize {
         (self.mbc.rom_bank_num() as usize * 0x4000) % self.data.len()
     }
@@ -104,7 +111,9 @@ impl Cartridge {
 
 impl Clone for Cartridge {
     fn clone(&self) -> Self {
-        Cartridge::new(self.path.clone())
+        let mut cartridge = Cartridge::new(self.path.clone(), None);
+        cartridge.mbc.load_ram(&self.mbc.dump_ram());
+        cartridge
     }
 }
 

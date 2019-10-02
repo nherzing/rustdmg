@@ -16,6 +16,8 @@ pub trait Mbc {
     fn get8(&self, addr: u16) -> u8;
     fn set8(&mut self, addr: u16, byte: u8);
     fn mbc_type(&self) -> MbcType;
+    fn dump_ram(&self) -> Vec<u8>;
+    fn load_ram(&mut self, data: &[u8]);
 }
 
 struct RomOnly {
@@ -47,6 +49,12 @@ impl Mbc for RomOnly {
     fn mbc_type(&self) -> MbcType {
         MbcType::RomOnly
     }
+
+    fn dump_ram(&self) -> Vec<u8> {
+        Vec::new()
+    }
+
+    fn load_ram(&mut self, data: &[u8]) { }
 }
 
 struct Mbc1 {
@@ -122,6 +130,14 @@ impl Mbc for Mbc1 {
 
     fn mbc_type(&self) -> MbcType {
         MbcType::Mbc1
+    }
+
+    fn dump_ram(&self) -> Vec<u8> {
+        self.ram.clone()
+    }
+
+    fn load_ram(&mut self, data: &[u8]) {
+        self.ram = data.to_owned();
     }
 }
 
@@ -203,6 +219,14 @@ impl Mbc for Mbc3 {
     fn mbc_type(&self) -> MbcType {
         MbcType::Mbc3
     }
+
+    fn dump_ram(&self) -> Vec<u8> {
+        self.ram.clone()
+    }
+
+    fn load_ram(&mut self, data: &[u8]) {
+        self.ram = data.to_owned();
+    }
 }
 
 struct Mbc5 {
@@ -220,7 +244,7 @@ impl Mbc5 {
             ram_bank_num: 0,
             ram_bank_enabled: false,
             mode: Mode::Rom,
-            ram: vec![0; 0x8000]
+            ram: vec![0xFF; 0x8000]
         }
     }
 
@@ -274,7 +298,16 @@ impl Mbc for Mbc5 {
     }
 
     fn mbc_type(&self) -> MbcType {
-        MbcType::Mbc1
+        MbcType::Mbc5
+    }
+
+    fn dump_ram(&self) -> Vec<u8> {
+        self.ram.clone()
+    }
+
+    fn load_ram(&mut self, data: &[u8]) {
+        self.ram = data.to_owned();
+        debug!("LOADED: {:X}", self.ram.len());
     }
 }
 

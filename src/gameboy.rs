@@ -103,6 +103,10 @@ impl Gameboy {
         self.map_devices(cartridge);
     }
 
+    pub fn dump_ram(&mut self) -> Vec<u8> {
+        self.device_manager.cartridge().dump_ram()
+    }
+
     fn map_devices(&mut self, cartridge: Cartridge) {
         self.memory_map.register(MemoryMappedDeviceId::Ignore, &[MappedArea(0x0000, 0x10000)]);
 

@@ -36,13 +36,15 @@ struct Cli {
     dmg: bool,
     #[structopt(short, long)]
     skip_boot_rom: bool,
+    #[structopt(short, long, parse(from_os_str))]
+    save_path: Option<std::path::PathBuf>,
     #[structopt(parse(from_os_str))]
     cartridge_path: std::path::PathBuf,
 }
 
 fn main() {
     let args = Cli::from_args();
-    let cartridge = cartridge::Cartridge::new(args.cartridge_path);
+    let cartridge = cartridge::Cartridge::new(args.cartridge_path, args.save_path);
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
