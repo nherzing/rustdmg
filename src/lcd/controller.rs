@@ -610,6 +610,9 @@ impl MemoryMappedDevice for LcdController {
                     VRamBank::Bank1 => 0x01
                 }
             }
+            OAM_START ... OAM_END => {
+                self.oam[(addr - OAM_START) as usize]
+            }
             LCDC => self.lcdc,
             STAT => {
                 if self.display_enabled() {
@@ -627,8 +630,24 @@ impl MemoryMappedDevice for LcdController {
             BGP => self.bgp,
             OBP0 => self.obp0,
             OBP1 => self.obp1,
+            BGPI => self.bg_palette_manager.geti() as u8,
+            BGPD => self.bg_palette_manager.get8(),
+            OBPI => self.ob_palette_manager.geti() as u8,
+            OBPD => self.ob_palette_manager.get8(),
             WY => self.wy,
             WX => self.wx,
+            HDMA1 => {
+                (self.vram_dma_src >> 8) as u8
+            }
+            HDMA2 => {
+                self.vram_dma_src as u8
+            }
+            HDMA3 => {
+                (self.vram_dma_dst >> 8) as u8
+            }
+            HDMA4 => {
+                self.vram_dma_dst as u8
+            }
             HDMA5 => {
                 match &self.dma_transfer {
                     None => 0xFF,

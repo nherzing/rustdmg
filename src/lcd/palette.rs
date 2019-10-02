@@ -61,6 +61,14 @@ impl PaletteManager {
         }
     }
 
+    pub fn geti(&self) -> usize {
+        self.index
+    }
+
+    pub fn get8(&self) -> u8 {
+        self.data[self.index]
+    }
+
     pub fn color(&self, palette_number: u8, value: u8) -> Color {
         let offset = (palette_number * 8 + value * 2) as usize;
         let b0 = self.data[offset] as u16;
