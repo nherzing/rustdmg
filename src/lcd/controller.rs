@@ -421,8 +421,9 @@ impl LcdController {
             return [None; GAME_WIDTH];
         }
 
-        let oam_tile_set = TileSet::new(&self.vram()[0x0..0x1000], false);
-        let oam_entries = OamEntries::new(&self.oam, &oam_tile_set, self.sprite_size());
+        let oam_tile_set0 = TileSet::new(&self.vram0[0x0..0x1000], false);
+        let oam_tile_set1 = TileSet::new(&self.vram1[0x0..0x1000], false);
+        let oam_entries = OamEntries::new(self.mode, &self.oam, &oam_tile_set0, &oam_tile_set1, self.sprite_size());
         oam_entries.row(self.ly)
     }
 
