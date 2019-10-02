@@ -135,7 +135,9 @@ impl Gameboy {
 
             let mut fire_interrupt = |interrupt| interrupts.push(interrupt);
             mb.devices().timer().tick(clocks, &mut fire_interrupt);
-            mb.devices().lcd_controller().tick(clocks, &mut frame_buffer, &mut fire_interrupt);
+            if let Some(dma_executor) = mb.devices().lcd_controller().tick(clocks, &mut frame_buffer, &mut fire_interrupt) {
+                dma_executor.execute(&mut mb);
+            }
             mb.devices().serial_controller().tick(clocks, &mut fire_interrupt);
             mb.devices().sound_controller().tick(clocks, &mut audio_queue);
 

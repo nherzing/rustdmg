@@ -1,3 +1,4 @@
+use crate::memory::memory_bus::{MemoryBus};
 use crate::memory::memory_map::{MemoryMappedDevice, MappedArea};
 use crate::gameboy::{Color, Mode, GAME_WIDTH};
 use super::tiles::TileSet;
@@ -45,6 +46,49 @@ const TILE_MAP_0_OFFSET: usize = TILE_MAP_0_START - (VRAM_START as usize);
 const TILE_MAP_1_START: usize = 0x9C00;
 const TILE_MAP_1_OFFSET: usize = TILE_MAP_1_START - (VRAM_START as usize);
 const TILE_MAP_SIZE: usize = 0x400;
+
+pub struct DmaExecutor {
+    src_start_addr: u16,
+    dst_start_addr: u16
+}
+
+impl DmaExecutor {
+    fn new(src_start_addr: u16, dst_start_addr: u16) -> Self {
+        DmaExecutor {
+            src_start_addr, dst_start_addr
+        }
+    }
+
+    pub fn execute(&self, mb: &mut MemoryBus) {
+        for i in 0..16 {
+            let d = mb.get8(self.src_start_addr + i as u16);
+            mb.set8(self.dst_start_addr + i as u16 + 0x8000, d);
+        }
+    }
+}
+
+struct DmaTransfer {
+    src_start: u16,
+    dst_start: u16,
+    len: u16,
+    transferred: u16,
+}
+
+impl DmaTransfer {
+    fn new(src_start: u16, dst_start: u16, len: u16) -> Self {
+        DmaTransfer { src_start, dst_start, len, transferred: 0 }
+    }
+
+    fn remaining(&self) -> u16 {
+        self.len - self.transferred
+    }
+
+    fn prime(&mut self) -> DmaExecutor {
+        let executor = DmaExecutor::new(self.src_start + self.transferred, self.dst_start + self.transferred);
+        self.transferred += 16;
+        executor
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Period {
@@ -160,7 +204,7 @@ pub struct LcdController {
     mode: Mode,
     vram_dma_src: u16,
     vram_dma_dst: u16,
-    dma_hblanks: u16
+    dma_transfer: Option<DmaTransfer>
 }
 
 impl LcdController {
@@ -190,7 +234,7 @@ impl LcdController {
             mode: Mode::CGB,
             vram_dma_src: 0,
             vram_dma_dst: 0,
-            dma_hblanks: 0
+            dma_transfer: None
         }
     }
 
@@ -211,10 +255,10 @@ impl LcdController {
         self.mode = mode;
     }
 
-    pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) where
+    pub fn tick<F>(&mut self, clocks: u32, frame_buffer: &mut [Color], mut fire_interrupt: F) -> Option<DmaExecutor> where
         F: FnMut(Interrupt) {
         if !self.display_enabled() {
-            return
+            return None
         }
 
         let orig_period = self.state.period;
@@ -242,31 +286,36 @@ impl LcdController {
                     }
                 }
                 HBlank => {
-                    if self.dma_hblanks > 0 {
-                        self.dma_hblanks -= 1;
-                    }
                     if b3!(self.stat) == 1 {
                         fire_interrupt(Interrupt::Stat);
                     }
-                }
 
+                    if let Some(dma_transfer) = self.dma_transfer.as_mut() {
+                        let executor = dma_transfer.prime();
+                        if dma_transfer.remaining() == 0 {
+                            self.dma_transfer = None;
+                        }
+                        return Some(executor);
+                    }
+                }
             }
         }
+        return None
     }
 
     pub fn dma(&mut self, data: &[u8]) {
         self.oam.copy_from_slice(data);
     }
 
-    pub fn vram_dma(&mut self, data: &[u8], hblank: bool) {
-        debug!("vram dma: {:?} {:X} -> {:X}, len: {}", self.vram_bank, self.vram_dma_src, self.vram_dma_dst + 0x8000, data.len());
+    pub fn vram_dma(&mut self, data: &[u8]) {
         let offset = self.vram_dma_dst as usize;
         for (i, d) in data.iter().enumerate() {
             self.vram_mut()[offset + i] = *d;
         }
-        if hblank {
-            self.dma_hblanks = (data.len() >> 4) as u16;
-        }
+    }
+
+    pub fn vram_hblank_dma(&mut self, len: u16) {
+        self.dma_transfer = Some(DmaTransfer::new(self.vram_dma_src, self.vram_dma_dst, len));
     }
 
     fn vram(&self) -> &[u8] {
@@ -580,10 +629,11 @@ impl MemoryMappedDevice for LcdController {
             WY => self.wy,
             WX => self.wx,
             HDMA5 => {
-                if self.dma_hblanks == 0 {
-                    0xFF
-                } else {
-                    0x00
+                match &self.dma_transfer {
+                    None => 0xFF,
+                    Some(dma_transfer) => {
+                        ((dma_transfer.remaining() - 1) >> 4) as u8
+                    }
                 }
             }
             _ => panic!("Invalid get address 0x{:X} mapped to LCD Controller", addr)
